@@ -1,7 +1,7 @@
 pragma solidity ^0.6.10;
 
-import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/math/SafeMath.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 
 contract Token is Ownable, ERC721 {
@@ -53,7 +53,7 @@ contract Token is Ownable, ERC721 {
         emit TransferAttempted(from, to, tokenId, "The NFT is a non-fungible, non-transferable token");
     }
 
-    function addressToString(address _address) private pure returns(string memory) {
+    function addressToString(address _address) private pure returns (string memory) {
         bytes32 _bytes = bytes32(uint256(_address));
         bytes memory HEX = "0123456789abcdef";
         bytes memory _addr = new bytes(42);

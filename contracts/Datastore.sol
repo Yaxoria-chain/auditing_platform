@@ -1,10 +1,13 @@
+// SPDX-License-Identifier: MIT
+
 pragma solidity ^0.6.10;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/utils/Pausable.sol";
 
 // Note: that using (Private / Internal) and External is a cheaper combination than Public which must copy data
 
-contract AuditableDataStore is Ownable {
+contract AuditableDataStore is Ownable, Pausable {
 
     // Daisy chain the data stores backwards and forwards to allow recursive backwards search.
     // The steps to migrate to a newer data store are as follows:
@@ -14,7 +17,7 @@ contract AuditableDataStore is Ownable {
     //      Transfer ownership of version X-1 (from the platform) to the void
     address private previousDataStore;
 
-    uint256 constant public version = 1;
+    string constant public version = "Demo: 1";
 
     struct Auditor {
         bool     isAuditor;
@@ -43,7 +46,17 @@ contract AuditableDataStore is Ownable {
     // Completed audits
     event NewRecord(address indexed _auditor, string indexed _hash, bool indexed _approved);
     
-    constructor() Ownable() public {}
+    constructor() Ownable() Pausable() public {}
+
+    function pause() external {
+        require(owner() == _msgSender(), "Ownable: caller is not the owner");
+        _pause();
+    }
+
+    function unpause() external {
+        require(owner() == _msgSender(), "Ownable: caller is not the owner");
+        _unpause();
+    }
 
     function isAuditor(address _auditor) external returns (bool) {
         return _isAuditor(_auditor);
@@ -90,7 +103,10 @@ contract AuditableDataStore is Ownable {
         return _recursiveAuditorSearch(_auditor);
     }
 
-    function addAuditor(address _auditor) external onlyOwner() {
+    function addAuditor(address _auditor) external {
+        require(owner() == _msgSender(), "Ownable: caller is not the owner");
+        require(!paused(), "Addition of auditors is paused");
+
         // We are adding the auditor for the first time into this data store
         require(!_auditorExists(_auditor), "Auditor record already exists");
 
@@ -100,7 +116,9 @@ contract AuditableDataStore is Ownable {
         emit AddedAuditor(_msgSender(), _auditor);
     }
 
-    function suspendAuditor(address _auditor) external onlyOwner() {
+    function suspendAuditor(address _auditor) external {
+        require(owner() == _msgSender(), "Ownable: caller is not the owner");
+
         // Do not change previous stores. Setting to false in the current store should prevent actions
         // from future stores when recursively searching
         require(_auditorExists(_auditor), "No auditor record in the current store");
@@ -111,7 +129,10 @@ contract AuditableDataStore is Ownable {
         emit SuspendedAuditor(_msgSender(), _auditor);
     }
 
-    function reinstateAuditor(address _auditor) external onlyOwner() {
+    function reinstateAuditor(address _auditor) external {
+        require(owner() == _msgSender(), "Ownable: caller is not the owner");
+        require(!paused(), "Reinstation of auditors is paused");
+
         require(_auditorExists(_auditor), "No auditor record in the current store");
         require(!_auditorIsActive(_auditor), "Auditor already has active status");
 
@@ -120,7 +141,10 @@ contract AuditableDataStore is Ownable {
         emit ReinstatedAuditor(_msgSender(), _auditor);
     }
 
-    function completeAudit(address _auditor, bool _approved, bytes calldata _txHash) external onlyOwner() {
+    function completeAudit(address _auditor, bool _approved, bytes calldata _txHash) external {
+        require(owner() == _msgSender(), "Ownable: caller is not the owner");
+        require(!paused(), "Adding new audits is paused");
+
         require(_auditorExists(_auditor), "No auditor record in the current store");
         require(_auditorIsActive(_auditor), "Auditor has been suspended");
 
@@ -144,7 +168,9 @@ contract AuditableDataStore is Ownable {
     }
 
     // anyone should be able to call this?
-    function migrate(address _auditor) external onlyOwner() {
+    function migrate(address _auditor) external {
+        require(owner() == _msgSender(), "Ownable: caller is not the owner");
+
         // Auditor should not exist to mitigate event spamming or possible neglectful changes to 
         // _recursiveAuditorSearch(address) which may allow them to switch their suspended status to active
         require(!_auditorExists(_auditor), "Already in data store");
