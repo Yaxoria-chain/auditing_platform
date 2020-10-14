@@ -1,11 +1,11 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: AGPL v3
 
 pragma solidity ^0.6.10;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
 
-contract Platform is Ownable, Pauseable {
+contract Platform is Ownable, Pausable {
 
     address public NFT;
     address public dataStore;
@@ -19,9 +19,9 @@ contract Platform is Ownable, Pauseable {
     event AuditorMigrated(address indexed _auditor);
 
     event InitializedNFT(address _NFT);
-    event InitializedDataStore(address _dataStore)
+    event InitializedDataStore(address _dataStore);
 
-    constructor(address _NFT, address _dataStore) Ownable() Pauseable() public {
+    constructor(address _NFT, address _dataStore) Ownable() Pausable() public {
         NFT = _NFT;
         dataStore = _dataStore;
 

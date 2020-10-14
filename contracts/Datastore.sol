@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: AGPL v3
 
 pragma solidity ^0.6.10;
 
@@ -87,8 +87,8 @@ contract AuditableDataStore is Ownable, Pausable {
 
         return 
         (
-            contracts[_auditor].auditor, 
-            contracts[_auditor].approved 
+            contracts[_contract].auditor, 
+            contracts[_contract].approved 
         );
     }
 
@@ -147,7 +147,7 @@ contract AuditableDataStore is Ownable, Pausable {
         if (_approved) {
             auditors[_auditor].approvedContracts.push(_hash);
         } else {
-            auditors[_auditor].opposedContracts.push(_hash)
+            auditors[_auditor].opposedContracts.push(_hash);
         }
 
         contracts[_hash].auditor = _auditor;
@@ -214,10 +214,13 @@ contract AuditableDataStore is Ownable, Pausable {
         bool _approved;
 
         if (_contractExists(_contract)) {
-            _auditor = contracts[_auditor].auditor;
-            _approved = contracts[_auditor].approved;            
+            _auditor = contracts[_contract].auditor;
+            _approved = contracts[_contract].approved;            
         } else if (previousDataStore != address(0)) {
-            (_auditor, _approved) = previousDataStore.call(abi.encodeWithSignature("contractDetailsRecursiveSearch(string)", _contract));
+            (bool success, bytes memory data) = previousDataStore.call(abi.encodeWithSignature("contractDetailsRecursiveSearch(address)", _contract));
+
+            // This won't work because of breaking solidity changes, have to figure out the data conversion above
+            // (_auditor, _approved) = previousDataStore.call(abi.encodeWithSignature("contractDetailsRecursiveSearch(string)", _contract));
         } else {
             revert("No contract record in any data store");
         }
@@ -237,7 +240,10 @@ contract AuditableDataStore is Ownable, Pausable {
                 isAnAuditor = true;
             }
         } else if (previousDataStore != address(0)) {
-            isAnAuditor = previousDataStore.call(abi.encodeWithSignature("isAuditorRecursiveSearch(address)", _auditor));
+            (bool success, bytes memory data) = previousDataStore.call(abi.encodeWithSignature("isAuditorRecursiveSearch(address)", _auditor));
+            
+            // This won't work because of breaking solidity changes, have to figure out the data conversion above
+            // isAnAuditor = previousDataStore.call(abi.encodeWithSignature("isAuditorRecursiveSearch(address)", _auditor));
         } else {
             revert("No auditor record in any data store");
         }
