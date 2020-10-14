@@ -217,7 +217,7 @@ contract DataStore is Ownable, Pausable {
             _auditor = contracts[_contract].auditor;
             _approved = contracts[_contract].approved;            
         } else if (previousDataStore != address(0)) {
-            (bool success, bytes memory data) = previousDataStore.call(abi.encodeWithSignature("contractDetailsRecursiveSearch(address)", _contract));
+            (bool success, bytes memory data) = previousDataStore.staticcall(abi.encodeWithSignature("contractDetailsRecursiveSearch(address)", _contract));
 
             // This won't work because of breaking solidity changes, have to figure out the data conversion above
             // (_auditor, _approved) = previousDataStore.call(abi.encodeWithSignature("contractDetailsRecursiveSearch(string)", _contract));
@@ -240,7 +240,7 @@ contract DataStore is Ownable, Pausable {
                 isAnAuditor = true;
             }
         } else if (previousDataStore != address(0)) {
-            (bool success, bytes memory data) = previousDataStore.call(abi.encodeWithSignature("isAuditorRecursiveSearch(address)", _auditor));
+            (bool success, bytes memory data) = previousDataStore.staticcall(abi.encodeWithSignature("isAuditorRecursiveSearch(address)", _auditor));
             
             // This won't work because of breaking solidity changes, have to figure out the data conversion above
             // isAnAuditor = previousDataStore.call(abi.encodeWithSignature("isAuditorRecursiveSearch(address)", _auditor));
