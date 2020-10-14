@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+
 pragma solidity ^0.6.10;
 
 import "@openzeppelin/contracts/math/SafeMath.sol";
@@ -16,7 +18,7 @@ contract Token is Ownable, ERC721 {
 
     constructor() Ownable() ERC721("Word", "WORD") public {}
 
-    function mint(address _auditorAddr, address _contract, bool _passed, bytes calldata _txHash) external onlyOwner() {
+    function mint(address _auditorAddr, address _contract, bool _passed, bytes calldata _hash) external onlyOwner() {
 
         // Address types must be converted manually otherwise conversions will not be in human readable form later
         string memory _auditor = addressToString(_auditorAddr);
@@ -33,7 +35,7 @@ contract Token is Ownable, ERC721 {
             '"auditor": ', '"', _auditor, '",',
             '"contract": ', '"', _address, '",',
             '"passedAudit": ', passed, ',',
-            '"deploymentHash": ', '"', string(_txHash), '",',
+            '"deploymentHash": ', '"', string(_hash), '",',
             '}'
             ));
 
@@ -54,6 +56,7 @@ contract Token is Ownable, ERC721 {
     }
 
     function addressToString(address _address) private pure returns (string memory) {
+        // utility function
         bytes32 _bytes = bytes32(uint256(_address));
         bytes memory HEX = "0123456789abcdef";
         bytes memory _addr = new bytes(42);

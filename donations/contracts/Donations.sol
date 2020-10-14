@@ -14,7 +14,7 @@ contract Donations is Ownable, Pausable {
     bool public paused;
 
     event Donated(address indexed _donator, uint256 _value);
-    event ChangedNFT(address indexed _previous, address indexed _next);
+    event ChangedNFT(address indexed _NFT);
     event SelfDestructed(address _self);
 
     constructor(address _NFT) Ownable() Pausable() public {
@@ -61,10 +61,9 @@ contract Donations is Ownable, Pausable {
 
         // For user convenience it would be better to inform the user instead of just changing
         // the NFT. Exmaples include minimum time locks, total number of donations or a fund goal
-        address previousNFT = NFT;
         NFT = _NFT;
 
-        emit ChangedNFT(previousNFT, NFT);
+        emit ChangedNFT(NFT);
     }
 
     function destroyContract() external {

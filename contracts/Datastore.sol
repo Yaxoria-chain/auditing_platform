@@ -5,16 +5,9 @@ pragma solidity ^0.6.10;
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
 
-// Note: that using (Private / Internal) and External is a cheaper combination than Public which must copy data
-
 contract AuditableDataStore is Ownable, Pausable {
 
-    // Daisy chain the data stores backwards and forwards to allow recursive backwards search.
-    // The steps to migrate to a newer data store are as follows:
-    //      Deploy the new data store (lets call that version X)
-    //      Look at version X-1 and if it exists then set previousDataStore in version X to version X-1
-    //      Transfer ownership of version X to the current platform
-    //      Transfer ownership of version X-1 (from the platform) to the void
+    // Daisy chain the data stores backwards to allow recursive backwards search.
     address private previousDataStore;
 
     string constant public version = "Demo: 1";
@@ -89,18 +82,14 @@ contract AuditableDataStore is Ownable, Pausable {
         return auditors[_auditor].opposedContracts[_index];
     }
 
-    function contractDetails(address _auditor) external returns (address, bool) {
-        require(contracts[_auditor].auditor != address(0), "No contract record in the current store");
+    function contractDetails(string memory _contract) external returns (address, bool) {
+        require(_contractExists(_contract), "No contract record in the current store");
 
         return 
         (
             contracts[_auditor].auditor, 
             contracts[_auditor].approved 
         );
-    }
-
-    function isAuditorRecursiveSearch(address _auditor) external returns (bool) {
-        return _recursiveAuditorSearch(_auditor);
     }
 
     function addAuditor(address _auditor) external {
@@ -167,7 +156,6 @@ contract AuditableDataStore is Ownable, Pausable {
         emit NewRecord(_auditor, _hash, _approved);
     }
 
-    // anyone should be able to call this?
     function migrate(address _auditor) external {
         require(owner() == _msgSender(), "Ownable: caller is not the owner");
 
@@ -205,6 +193,38 @@ contract AuditableDataStore is Ownable, Pausable {
         return auditors[_auditor].isAuditor;
     }
 
+    function _contractExists(string memory _contract) private returns (bool) {
+        return contracts[_contract].auditor != address(0);
+    }
+
+    function isAuditorRecursiveSearch(address _auditor) external returns (bool) {
+        // Check in all previous stores if the latest record of them being an auditor is set to true/false
+        // This is likely to be expensive so it is better to check each store manually
+        return _recursiveAuditorSearch(_auditor);
+    }
+
+    function contractDetailsRecursiveSearch(string memory _contract) external returns (address, bool) {
+        // Check in all previous stores if this contract has been recorded
+        // This is likely to be expensive so it is better to check each store manually
+        return _recursiveContractDetailsSearch(_contract);
+    }
+
+    function _recursiveContractDetailsSearch(string memory _contract) private returns (address, bool) {
+        address _auditor;
+        bool _approved;
+
+        if (_contractExists(_contract)) {
+            _auditor = contracts[_auditor].auditor;
+            _approved = contracts[_auditor].approved;            
+        } else if (previousDataStore != address(0)) {
+            (_auditor, _approved) = previousDataStore.call(abi.encodeWithSignature("contractDetailsRecursiveSearch(string)", _contract));
+        } else {
+            revert("No contract record in any data store");
+        }
+
+        return (_auditor, _approved);
+    }
+
     function _recursiveAuditorSearch(address _auditor) private returns (bool) {
         // Technically not needed as default is set to false but lets be explicit
         // Also, do not shadow the function name
@@ -217,10 +237,11 @@ contract AuditableDataStore is Ownable, Pausable {
                 isAnAuditor = true;
             }
         } else if (previousDataStore != address(0)) {
-            isAnAuditor = previousDataStore.call(abi.encodeWithSignature("recursiveAuditorSearch(address)", _auditor));
+            isAnAuditor = previousDataStore.call(abi.encodeWithSignature("isAuditorRecursiveSearch(address)", _auditor));
+        } else {
+            revert("No auditor record in any data store");
         }
 
         return isAnAuditor;
     }
-
 }

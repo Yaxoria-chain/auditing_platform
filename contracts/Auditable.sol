@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+
 pragma solidity ^0.6.10;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
@@ -6,7 +8,6 @@ contract Auditable is Ownable {
 
     address public auditor;
     address public platform;
-    address public auditedContract;
 
     // Indicates whether the audit has been completed and approved (true) or not (false)
     bool public audited;
@@ -20,70 +21,99 @@ contract Auditable is Ownable {
         _;
     }
 
-    event SetAuditor(address _previous, address _new, address _contract);
-    event SetPlatform(address _previous, address _new, address _contract);
-    event ApprovedAudit(address _auditor, address _contract);
-    event OpposedAudit(address _auditor, address _contract);
-    event TxHashSet(string _txHash);
+    event SetAuditor(address indexed _auditor);
+    event SetPlatform(address indexed _platform);
+    event ApprovedAudit(address _auditor);
+    event OpposedAudit(address _auditor);
+    event CreationHashSet(string _hash);
 
-    constructor(address _auditor, address _platform) Ownable() public {
-        setAuditor(_auditor);
-        setPlatform(_platform);
-        auditedContract = address(this);
+    constructor(address _auditor, address _platform) Ownable() internal {
+        _setAuditor(_auditor);
+        _setPlatform(_platform);
     }
 
-    function setContractCreationHash(string memory _txHash) public onlyOwner() {
-        require(bytes(contractCreationHash).length == 0, "tx has been set");
+    function setContractCreationHash(string memory _hash) external onlyOwner() {
+        // We do not want the deployer to change this as the auditor is approving/opposing
+        // Auditor can check that this has been set at the beginning and move on
+        require(bytes(contractCreationHash).length == 0, "Hash has already been set");
 
-        contractCreationHash = _txHash;
+        contractCreationHash = _hash;
 
-        emit TxHashSet(contractCreationHash);
+        emit CreationHashSet(contractCreationHash);
     }
 
-    function setAuditor(address _auditor) public {
+    function setAuditor(address _auditor) external {
+        _setAuditor(_auditor);
+    }
+
+    function setPlatform(address _platform) external {
+        _setPlatform(_platform);
+    }
+
+    function _setAuditor(address _auditor) private {
+        // If auditor bails then owner can change
+        // If auditor loses contact with owner and cannot complete the audit then they can change
         require(_msgSender() == auditor || _msgSender() == owner, "Auditor and Owner only");
+
+        // Do not spam events after the audit; easier to check final state if you cannot change it
         require(!audited, "Cannot change auditor post audit");
 
-        address previousAuditor = auditor;
         auditor = _auditor;
 
-        emit SetAuditor(previousAuditor, auditor, auditedContract);
+        emit SetAuditor(auditor);
     }
 
-    function setPlatform(address _platform) public {
+    function _setPlatform(address _platform) private {
+        // If auditor bails then owner can change
+        // If auditor loses contact with owner and cannot complete the audit then they can change
         require(_msgSender() == auditor || _msgSender() == owner, "Auditor and Owner only");
+
+        // Do not spam events after the audit; easier to check final state if you cannot change it
         require(!audited, "Cannot change platform post audit");
 
-        address previousPlatform = platform;
         platform = _platform;
 
-        emit SetPlatform(previousPlatform, platform, auditedContract);
+        emit SetPlatform(platform);
     }
 
-    function approveAudit(string memory _txHash) public {
+    function approveAudit(string memory _hash) external {
+        // Only the auditor should be able to approve
         require(_msgSender() == auditor, "Auditor only");
-        require(keccak256(abi.encodePacked(_txHash)) == keccak256(abi.encodePacked(contractCreationHash)), "tx hashes do not match");
+
+        // Make sure that the hash has been set and that they match
+        require(bytes(contractCreationHash).length != 0, "Hash has not been set");
+        require(keccak256(abi.encodePacked(_hash)) == keccak256(abi.encodePacked(contractCreationHash)), "Hashes do not match");
+        
+        // Auditor cannot change their mind and approve/oppose multiple times
         require(!audited, "Contract has already been approved");
 
-        audited = true;        
+        // Switch to true to approve
+        audited = true;
 
         // Delegate the call via the platform to complete the audit        
-        platform.delegatecall(abi.encodeWithSignature("completeAudit(address, bool, bytes)", auditedContract, audited, abi.encodePacked(_txHash)));
+        platform.delegatecall(abi.encodeWithSignature("completeAudit(address, bool, bytes)", address(this), audited, abi.encodePacked(_hash)));
 
-        emit ApprovedAudit(_msgSender(), auditedContract);
+        emit ApprovedAudit(_msgSender());
     }
 
-    function opposeAudit(string memory _txHash) public {
+    function opposeAudit(string memory _hash) external {
+        // Only the auditor should be able to approve
         require(_msgSender() == auditor, "Auditor only");
-        require(keccak256(abi.encodePacked(_txHash)) == keccak256(abi.encodePacked(contractCreationHash)), "tx hashes do not match");
+
+        // Make sure that the hash has been set and that they match
+        require(bytes(contractCreationHash).length != 0, "Hash has not been set");
+        require(keccak256(abi.encodePacked(_hash)) == keccak256(abi.encodePacked(contractCreationHash)), "Hashes do not match");
+        
+        // Auditor cannot change their mind and approve/oppose multiple times
         require(!audited, "Cannot destroy an approved contract");
 
+        // Explicitly set to false to be sure
         audited = false;
 
         // Delegate the call via the platform to complete the audit
-        platform.delegatecall(abi.encodeWithSignature("completeAudit(address, bool, bytes)", auditedContract, audited, abi.encodePacked(_txHash)));
+        platform.delegatecall(abi.encodeWithSignature("completeAudit(address, bool, bytes)", address(this), audited, abi.encodePacked(_hash)));
 
-        emit OpposedAudit(_msgSender(), auditedContract);
+        emit OpposedAudit(_msgSender());
     }
 }
 
