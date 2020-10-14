@@ -5,7 +5,7 @@ pragma solidity ^0.6.10;
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
 
-contract AuditableDataStore is Ownable, Pausable {
+contract DataStore is Ownable, Pausable {
 
     // Daisy chain the data stores backwards to allow recursive backwards search.
     address private previousDataStore;
@@ -51,11 +51,11 @@ contract AuditableDataStore is Ownable, Pausable {
         _unpause();
     }
 
-    function isAuditor(address _auditor) external returns (bool) {
+    function isAuditor(address _auditor) external view returns (bool) {
         return _isAuditor(_auditor);
     }
 
-    function auditorDetails(address _auditor) external returns (bool, uint256, uint256) {
+    function auditorDetails(address _auditor) external view returns (bool, uint256, uint256) {
         require(_auditorExists(_auditor), "No auditor record in the current store");
 
         return 
@@ -67,7 +67,7 @@ contract AuditableDataStore is Ownable, Pausable {
     }
 
     // check the length, will it underflow?
-    function auditorApprovedContract(address _auditor, uint256 _index) external returns (string memory) {
+    function auditorApprovedContract(address _auditor, uint256 _index) external view returns (string memory) {
         require(_auditorExists(_auditor), "No auditor record in the current store");
         require(_index <= auditors[_auditor].approvedContracts.length - 1, "Index is too large, array out of bounds");
 
@@ -75,14 +75,14 @@ contract AuditableDataStore is Ownable, Pausable {
     }
 
     // check the length, will it underflow?
-    function auditorOpposedContract(address _auditor, uint256 _index) external returns (string memory) {
+    function auditorOpposedContract(address _auditor, uint256 _index) external view returns (string memory) {
         require(_auditorExists(_auditor), "No auditor record in the current store");
         require(_index <= auditors[_auditor].opposedContracts.length - 1, "Index is too large, array out of bounds");
 
         return auditors[_auditor].opposedContracts[_index];
     }
 
-    function contractDetails(string memory _contract) external returns (address, bool) {
+    function contractDetails(string memory _contract) external view returns (address, bool) {
         require(_contractExists(_contract), "No contract record in the current store");
 
         return 
@@ -181,35 +181,35 @@ contract AuditableDataStore is Ownable, Pausable {
         }
     }
 
-    function _isAuditor(address _auditor) private returns (bool) {
+    function _isAuditor(address _auditor) private view returns (bool) {
         return _auditorExists(_auditor) && _auditorIsActive(_auditor);
     }
 
-    function _auditorExists(address _auditor) private returns (bool) {
+    function _auditorExists(address _auditor) private view returns (bool) {
         return auditors[_auditor].auditor != address(0);
     }
 
-    function _auditorIsActive(address _auditor) private returns (bool) {
+    function _auditorIsActive(address _auditor) private view returns (bool) {
         return auditors[_auditor].isAuditor;
     }
 
-    function _contractExists(string memory _contract) private returns (bool) {
+    function _contractExists(string memory _contract) private view returns (bool) {
         return contracts[_contract].auditor != address(0);
     }
 
-    function isAuditorRecursiveSearch(address _auditor) external returns (bool) {
+    function isAuditorRecursiveSearch(address _auditor) external view returns (bool) {
         // Check in all previous stores if the latest record of them being an auditor is set to true/false
         // This is likely to be expensive so it is better to check each store manually
         return _recursiveAuditorSearch(_auditor);
     }
 
-    function contractDetailsRecursiveSearch(string memory _contract) external returns (address, bool) {
+    function contractDetailsRecursiveSearch(string memory _contract) external view returns (address, bool) {
         // Check in all previous stores if this contract has been recorded
         // This is likely to be expensive so it is better to check each store manually
         return _recursiveContractDetailsSearch(_contract);
     }
 
-    function _recursiveContractDetailsSearch(string memory _contract) private returns (address, bool) {
+    function _recursiveContractDetailsSearch(string memory _contract) private view returns (address, bool) {
         address _auditor;
         bool _approved;
 
@@ -228,7 +228,7 @@ contract AuditableDataStore is Ownable, Pausable {
         return (_auditor, _approved);
     }
 
-    function _recursiveAuditorSearch(address _auditor) private returns (bool) {
+    function _recursiveAuditorSearch(address _auditor) private view returns (bool) {
         // Technically not needed as default is set to false but lets be explicit
         // Also, do not shadow the function name
         bool isAnAuditor = false;
