@@ -2,7 +2,7 @@
 
 pragma solidity ^0.6.10;
 
-import "@openzeppelin/contracts/access/Ownable.sol";
+import "./Ownable.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
 
 contract Donations is Ownable, Pausable {
@@ -10,19 +10,19 @@ contract Donations is Ownable, Pausable {
     // The non-fungible, non-transferable token can be updated over time as newer versions are released
     address public NFT;
 
-    // value used as a start/stop mechanic for donating
-    bool public paused;
-
     event Donated(address indexed _donator, uint256 _value);
     event ChangedNFT(address indexed _NFT);
-    event SelfDestructed(address _self);
+    event SelfDestructed(address _owner, address _self);
+    event InitializedNFT(address _NFT);
 
     constructor(address _NFT) Ownable() Pausable() public {
         // Launch the NFT with the platform
-        setNFT(_NFT);
+        NFT = _NFT;
 
         // Pause donations at the start until we are ready
         _pause();
+
+        emit InitializedNFT(NFT);
     }
 
     function donate() external payable {
@@ -39,24 +39,20 @@ contract Donations is Ownable, Pausable {
         }
 
         // Transfer the value to the owner
-        owner.transfer(msg.value);
+        _owner().transfer(msg.value);
 
         emit Donated(_msgSender(), msg.value);
     }
 
-    function pause() external {
-        require(owner() == _msgSender(), "Ownable: caller is not the owner");
+    function pause() external onlyOwner() {
         _pause();
     }
 
-    function unpause() external {
-        require(owner() == _msgSender(), "Ownable: caller is not the owner");
+    function unpause() external onlyOwner() {
         _unpause();
     }
 
-    function setNFT(address _NFT) external {
-        require(owner() == _msgSender(), "Ownable: caller is not the owner");
-
+    function setNFT(address _NFT) external onlyOwner() {
         // Over time new iterations of (collectibles) NFTs shall be issued.
 
         // For user convenience it would be better to inform the user instead of just changing
@@ -66,10 +62,10 @@ contract Donations is Ownable, Pausable {
         emit ChangedNFT(NFT);
     }
 
-    function destroyContract() external {
-        require(owner() == _msgSender(), "Ownable: caller is not the owner");
+    function destroyContract() external onlyOwner() {
+        emit SelfDestructed(_msgSender(), address(this));
 
-        emit SelfDestructed(address(this));        
-        selfdestruct(owner);
+        // Everything should be fine at this point but just to be extra safe use the _owner()
+        selfdestruct(_owner());
     }
 }

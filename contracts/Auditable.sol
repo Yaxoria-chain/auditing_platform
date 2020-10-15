@@ -10,14 +10,14 @@ contract Auditable is Ownable {
     address public platform;
 
     // Indicates whether the audit has been completed and approved (true) or not (false)
-    bool public audited;
+    bool public approved;
 
     // A deployed contract has a creation hash, store it so that you can access the code 
     // post self destruct from an external location
     string public contractCreationHash;
 
-    modifier isAudited() {
-        require(audited, "Not audited");
+    modifier isApproved() {
+        require(approved, "Not approved");
         _;
     }
 
@@ -56,7 +56,7 @@ contract Auditable is Ownable {
         require(_msgSender() == auditor || _msgSender() == owner(), "Auditor and Owner only");
 
         // Do not spam events after the audit; easier to check final state if you cannot change it
-        require(!audited, "Cannot change auditor post audit");
+        require(!approved, "Cannot change auditor post audit");
 
         auditor = _auditor;
 
@@ -69,7 +69,7 @@ contract Auditable is Ownable {
         require(_msgSender() == auditor || _msgSender() == owner(), "Auditor and Owner only");
 
         // Do not spam events after the audit; easier to check final state if you cannot change it
-        require(!audited, "Cannot change platform post audit");
+        require(!approved, "Cannot change platform post audit");
 
         platform = _platform;
 
@@ -85,13 +85,13 @@ contract Auditable is Ownable {
         require(keccak256(abi.encodePacked(_hash)) == keccak256(abi.encodePacked(contractCreationHash)), "Hashes do not match");
         
         // Auditor cannot change their mind and approve/oppose multiple times
-        require(!audited, "Contract has already been approved");
+        require(!approved, "Contract has already been approved");
 
         // Switch to true to approve
-        audited = true;
+        approved = true;
 
         // Delegate the call via the platform to complete the audit        
-        platform.delegatecall(abi.encodeWithSignature("completeAudit(address, bool, bytes)", address(this), audited, abi.encodePacked(_hash)));
+        platform.delegatecall(abi.encodeWithSignature("completeAudit(address, bool, bytes)", address(this), approved, abi.encodePacked(_hash)));
 
         emit ApprovedAudit(_msgSender());
     }
@@ -105,13 +105,13 @@ contract Auditable is Ownable {
         require(keccak256(abi.encodePacked(_hash)) == keccak256(abi.encodePacked(contractCreationHash)), "Hashes do not match");
         
         // Auditor cannot change their mind and approve/oppose multiple times
-        require(!audited, "Cannot destroy an approved contract");
+        require(!approved, "Cannot destroy an approved contract");
 
         // Explicitly set to false to be sure
-        audited = false;
+        approved = false;
 
         // Delegate the call via the platform to complete the audit
-        platform.delegatecall(abi.encodeWithSignature("completeAudit(address, bool, bytes)", address(this), audited, abi.encodePacked(_hash)));
+        platform.delegatecall(abi.encodeWithSignature("completeAudit(address, bool, bytes)", address(this), approved, abi.encodePacked(_hash)));
 
         emit OpposedAudit(_msgSender());
     }

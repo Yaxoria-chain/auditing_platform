@@ -18,14 +18,14 @@ contract Token is Ownable, ERC721 {
 
     constructor() Ownable() ERC721("Word", "WORD") public {}
 
-    function mint(address _auditorAddr, address _contract, bool _passed, bytes calldata _hash) external onlyOwner() {
+    function mint(address _auditorAddr, address _contract, bool _approved, bytes calldata _hash) external onlyOwner() {
 
         // Address types must be converted manually otherwise conversions will not be in human readable form later
         string memory _auditor = addressToString(_auditorAddr);
         string memory _address = addressToString(_contract);
         string memory _metaData;
 
-        string memory passed = _passed ? 'true' : 'false';
+        string memory approved = _approved ? 'true' : 'false';
 
         _metaData =  string(abi.encodePacked(
             '{',
@@ -34,7 +34,7 @@ contract Token is Ownable, ERC721 {
             '"image": ', '"https://ipfs.io/ipfs/QmSZUL7Ea21osUUUESX6nPuUSSTF6RniyoJGBaa2ZY7Vjd",',
             '"auditor": ', '"', _auditor, '",',
             '"contract": ', '"', _address, '",',
-            '"passedAudit": ', passed, ',',
+            '"approved": ', approved, ',',
             '"deploymentHash": ', '"', string(_hash), '",',
             '}'
             ));
