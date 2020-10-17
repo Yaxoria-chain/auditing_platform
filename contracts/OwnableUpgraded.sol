@@ -17,14 +17,15 @@ contract OwnableUpgraded is Context {
         _;
     }
 
-    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
+    event OwnershipTransferred(address indexed _previousOwner, address indexed _newOwner);
 
     constructor() internal {
-        _transferOwnership(_msgSender());
+        __owner = _msgSender();
+        emit OwnershipTransferred(address(0), __owner);  
     }
 
     function owner() external view returns (address payable) {
-        return __owner;
+        return _owner();
     }
 
     function _owner() internal view returns (address payable) {
@@ -38,16 +39,16 @@ contract OwnableUpgraded is Context {
         emit OwnershipTransferred(prevOwner, __owner);
     }
 
-    function transferOwnership(address payable newOwner) external onlyOwner() {
-        _transferOwnership(newOwner);
+    function transferOwnership(address payable _newOwner) external onlyOwner() {
+        _transferOwnership(_newOwner);
     }
 
-    function _transferOwnership(address payable newOwner) internal onlyOwner() {
-        require(newOwner != address(0), "OwnableUpgraded: new owner is the zero address");
+    function _transferOwnership(address payable _newOwner) internal onlyOwner() {
+        require(_newOwner != address(0), "OwnableUpgraded: new owner is the zero address");
 
         address prevOwner = __owner;
-        __owner = newOwner;
+        __owner = _newOwner;
 
-        emit OwnershipTransferred(prevOwner, __owner);  
+        emit OwnershipTransferred(prevOwner, __owner);
     }
 }
