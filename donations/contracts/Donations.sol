@@ -2,10 +2,10 @@
 
 pragma solidity ^0.6.10;
 
-import "./Ownable.sol";
+import "./OwnableUpgraded.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
 
-contract Donations is Ownable, Pausable {
+contract Donations is OwnableUpgraded, Pausable {
 
     // The non-fungible, non-transferable token can be updated over time as newer versions are released
     address public NFT;
@@ -15,7 +15,7 @@ contract Donations is Ownable, Pausable {
     event SelfDestructed(address _owner, address _self);
     event InitializedNFT(address _NFT);
 
-    constructor(address _NFT) Ownable() Pausable() public {
+    constructor(address _NFT) OwnableUpgraded() Pausable() public {
         // Launch the NFT with the platform
         NFT = _NFT;
 

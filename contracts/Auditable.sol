@@ -9,7 +9,9 @@ contract Auditable is Ownable {
     address public auditor;
     address public platform;
 
-    // Indicates whether the audit has been completed and approved (true) or not (false)
+    // Indicates whether the audit has been completed or is in progress
+    bool public audited;
+    // Indicates whether the audit has been approved (true) or opposed (false)
     bool public approved;
 
     // A deployed contract has a creation hash, store it so that you can access the code 
@@ -21,10 +23,12 @@ contract Auditable is Ownable {
         _;
     }
 
-    event SetAuditor(address indexed _auditor);
-    event SetPlatform(address indexed _platform);
+    event SetAuditor(   address indexed _sender, address indexed _auditor);
+    event SetPlatform(  address indexed _sender, address indexed _platform);
+
     event ApprovedAudit(address _auditor);
-    event OpposedAudit(address _auditor);
+    event OpposedAudit( address _auditor);
+
     event CreationHashSet(string _hash);
 
     constructor(address _auditor, address _platform) Ownable() internal {
@@ -33,6 +37,9 @@ contract Auditable is Ownable {
     }
 
     function setContractCreationHash(string memory _hash) external onlyOwner() {
+        // Prevent the owner from setting the hash post audit for safety
+        require(!audited, "Contract has already been audited");
+
         // We do not want the deployer to change this as the auditor is approving/opposing
         // Auditor can check that this has been set at the beginning and move on
         require(bytes(contractCreationHash).length == 0, "Hash has already been set");
@@ -56,11 +63,11 @@ contract Auditable is Ownable {
         require(_msgSender() == auditor || _msgSender() == owner(), "Auditor and Owner only");
 
         // Do not spam events after the audit; easier to check final state if you cannot change it
-        require(!approved, "Cannot change auditor post audit");
+        require(!audited, "Cannot change auditor post audit");
 
         auditor = _auditor;
 
-        emit SetAuditor(auditor);
+        emit SetAuditor(_msgSender(), auditor);
     }
 
     function _setPlatform(address _platform) private {
@@ -69,11 +76,11 @@ contract Auditable is Ownable {
         require(_msgSender() == auditor || _msgSender() == owner(), "Auditor and Owner only");
 
         // Do not spam events after the audit; easier to check final state if you cannot change it
-        require(!approved, "Cannot change platform post audit");
+        require(!audited, "Cannot change platform post audit");
 
         platform = _platform;
 
-        emit SetPlatform(platform);
+        emit SetPlatform(_msgSender(), platform);
     }
 
     function approveAudit(string memory _hash) external {
@@ -85,9 +92,10 @@ contract Auditable is Ownable {
         require(keccak256(abi.encodePacked(_hash)) == keccak256(abi.encodePacked(contractCreationHash)), "Hashes do not match");
         
         // Auditor cannot change their mind and approve/oppose multiple times
-        require(!approved, "Contract has already been approved");
+        require(!audited, "Contract has already been audited");
 
-        // Switch to true to approve
+        // Switch to true to complete audit and approve
+        audited = true;
         approved = true;
 
         // Delegate the call via the platform to complete the audit        
@@ -105,9 +113,10 @@ contract Auditable is Ownable {
         require(keccak256(abi.encodePacked(_hash)) == keccak256(abi.encodePacked(contractCreationHash)), "Hashes do not match");
         
         // Auditor cannot change their mind and approve/oppose multiple times
-        require(!approved, "Cannot destroy an approved contract");
+        require(!audited, "Cannot oppose an audited contract");
 
-        // Explicitly set to false to be sure
+        // Switch to true to complete the audit and explicitly set approved to false (default is false)
+        audited = true;
         approved = false;
 
         // Delegate the call via the platform to complete the audit
@@ -116,7 +125,3 @@ contract Auditable is Ownable {
         emit OpposedAudit(_msgSender());
     }
 }
-
-
-
-
