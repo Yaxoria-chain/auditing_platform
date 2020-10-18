@@ -2,19 +2,19 @@
 
 pragma solidity ^0.6.0;
 
-import "@openzeppelin/contracts/GSN/Context.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 
-contract PausableUpgraded is Context {
+contract PausableUpgraded is Ownable {
 
-    bool private __paused;
+    bool private _paused;
 
     modifier whenNotPaused() {
-        require(!__paused, "Action is suspended");
+        require(!_paused, "Action is active");
         _;
     }
 
     modifier whenPaused() {
-        require(__paused, "Action is active");
+        require(_paused, "Action is suspended");
         _;
     }
 
@@ -24,22 +24,16 @@ contract PausableUpgraded is Context {
     constructor () internal {}
 
     function paused() external view returns (bool) {
-        return _paused();
+        return _paused;
     }
 
-    function _paused() internal view returns (bool) {
-        return __paused;
-    }
-
-    function _pause() internal {
-        require(!__paused, "Action is suspended");
-        __paused = true;
+    function pause() external onlyOwner() whenNotPaused() {
+        _paused = true;
         emit Paused(_msgSender());
     }
 
-    function _unpause() internal {
-        require(__paused, "Action is active");
-        __paused = false;
+    function unpause() external onlyOwner() whenPaused() {
+        _paused = false;
         emit Unpaused(_msgSender());
     }
 }

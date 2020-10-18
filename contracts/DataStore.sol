@@ -226,12 +226,4 @@ contract DataStore is Ownable, PausableUpgraded {
 
         return isAnAuditor;
     }
-
-    function pause() external onlyOwner() whenNotPaused() {
-        _pause();
-    }
-
-    function unpause() external onlyOwner() whenPaused() {
-        _unpause();
-    }
 }

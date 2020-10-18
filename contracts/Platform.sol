@@ -73,14 +73,6 @@ contract Platform is Ownable, PausableUpgraded {
         emit ReinstatedAuditor(_msgSender(), _auditor);
     }
 
-    function pausePlatform() external onlyOwner() {
-        _pause();
-    }
-
-    function unpausePlatform() external onlyOwner() {
-        _unpause();
-    }
-
     function pauseDataStore() external onlyOwner() {
         dataStore.delegatecall(abi.encodeWithSignature("pause()"));
         emit PausedDataStore(_msgSender(), dataStore);

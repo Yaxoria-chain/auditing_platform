@@ -3,31 +3,24 @@
 pragma solidity ^0.6.10;
 
 import "./OwnableUpgraded.sol";
-import "@openzeppelin/contracts/utils/Pausable.sol";
+import "./PausableUpgraded.sol";
 
-contract Donations is OwnableUpgraded, Pausable {
+contract Donations is OwnableUpgraded, PausableUpgraded {
 
     // The non-fungible, non-transferable token can be updated over time as newer versions are released
     address public NFT;
 
     event Donated(address indexed _donator, uint256 _value);
     event ChangedNFT(address indexed _NFT);
-    event SelfDestructed(address _owner, address _self);
     event InitializedNFT(address _NFT);
+    event SelfDestructed(address _owner, address _self);
 
-    constructor(address _NFT) OwnableUpgraded() Pausable() public {
-        // Launch the NFT with the platform
+    constructor(address _NFT) OwnableUpgraded() PausableUpgraded() public {
         NFT = _NFT;
-
-        // Pause donations at the start until we are ready
-        _pause();
-
         emit InitializedNFT(NFT);
     }
 
-    function donate() external payable {
-        require(!paused(), "Donations are currently paused");
-
+    function donate() external payable whenNotPaused() {
         // Accept any donation (including 0) but ...
         // if donation >= 0.1 ether then mint the non-fungible token as a collectible / thank you
         if (msg.value >= 100000000000000000) 
@@ -44,15 +37,7 @@ contract Donations is OwnableUpgraded, Pausable {
         emit Donated(_msgSender(), msg.value);
     }
 
-    function pause() external onlyOwner() {
-        _pause();
-    }
-
-    function unpause() external onlyOwner() {
-        _unpause();
-    }
-
-    function setNFT(address _NFT) external onlyOwner() {
+    function setNFT(address _NFT) external onlyOwner() whenPaused() {
         // Over time new iterations of (collectibles) NFTs shall be issued.
 
         // For user convenience it would be better to inform the user instead of just changing
