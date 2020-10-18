@@ -66,7 +66,7 @@ contract("Auditable", async (accounts) => {
             assert.strictEqual(hash, transaction.logs[0].args._hash);
        });
 
-        it("Reverts a non-owner call ", async () => {
+        it("Reverts a non-owner call", async () => {
             const initialHash = await auditable.contractCreationHash();
 
             truffleAssert.reverts(auditable.setContractCreationHash(_hash = hash, {from: auditor}));
