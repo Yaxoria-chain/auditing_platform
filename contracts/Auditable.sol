@@ -2,7 +2,7 @@
 
 pragma solidity ^0.6.10;
 
-import "@openzeppelin/contracts/access/Ownable.sol";
+import "./Ownable.sol";
 
 contract Auditable is Ownable {
 
@@ -60,7 +60,7 @@ contract Auditable is Ownable {
     function _setAuditor(address _auditor) private {
         // If auditor bails then owner can change
         // If auditor loses contact with owner and cannot complete the audit then they can change
-        require(_msgSender() == auditor || _msgSender() == owner(), "Auditor and Owner only");
+        require(_msgSender() == auditor || _msgSender() == _owner(), "Auditor and Owner only");
 
         // Do not spam events after the audit; easier to check final state if you cannot change it
         require(!audited, "Cannot change auditor post audit");
@@ -73,7 +73,7 @@ contract Auditable is Ownable {
     function _setPlatform(address _platform) private {
         // If auditor bails then owner can change
         // If auditor loses contact with owner and cannot complete the audit then they can change
-        require(_msgSender() == auditor || _msgSender() == owner(), "Auditor and Owner only");
+        require(_msgSender() == auditor || _msgSender() == _owner(), "Auditor and Owner only");
 
         // Do not spam events after the audit; easier to check final state if you cannot change it
         require(!audited, "Cannot change platform post audit");

@@ -1,10 +1,10 @@
-const OwnableUpgraded = artifacts.require("OwnableUpgraded");
+const Ownable = artifacts.require("Ownable");
 const truffleAssert = require("truffle-assertions");
 
-// NOTE: None of this will run unless you set the constructor of OwnableUpgraded to public from internal
+// NOTE: None of this will run unless you set the constructor of Ownable to public from internal
 //       The compiler is a cunt. Make sure to set it back to internal after you run the tests!
 
-contract("OwnableUpgraded", async (accounts) => {
+contract("Ownable", async (accounts) => {
 
     let owner;
     let newOwner;
@@ -17,7 +17,7 @@ contract("OwnableUpgraded", async (accounts) => {
     });
 
     beforeEach(async () => {
-        ownable = await OwnableUpgraded.new({from: owner});
+        ownable = await Ownable.new({from: owner});
     });
 
     describe("# constructor()", () => {

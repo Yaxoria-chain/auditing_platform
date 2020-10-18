@@ -1,10 +1,10 @@
-const PausableUpgraded = artifacts.require("PausableUpgraded");
+const Pausable = artifacts.require("Pausable");
 const truffleAssert = require("truffle-assertions");
 
-// NOTE: None of this will run unless you set the constructor of PausableUpgraded to public from internal
+// NOTE: None of this will run unless you set the constructor of Pausable to public from internal
 //       The compiler is a cunt. Make sure to set it back to internal after you run the tests!
 
-contract("PausableUpgraded", async (accounts) => {
+contract("Pausable", async (accounts) => {
 
     let owner;
     let notOwner;
@@ -16,7 +16,7 @@ contract("PausableUpgraded", async (accounts) => {
     });
 
     beforeEach(async () => {
-        pausable = await PausableUpgraded.new({from: owner});
+        pausable = await Pausable.new({from: owner});
     });
 
     describe("# pause()", () => {

@@ -2,10 +2,9 @@
 
 pragma solidity ^0.6.10;
 
-import "./OwnableUpgraded.sol";
-import "./PausableUpgraded.sol";
+import "./Pausable.sol";
 
-contract Donations is OwnableUpgraded, PausableUpgraded {
+contract Donations is Pausable {
 
     // The non-fungible, non-transferable token can be updated over time as newer versions are released
     address public NFT;
@@ -15,7 +14,7 @@ contract Donations is OwnableUpgraded, PausableUpgraded {
     event InitializedNFT(address _NFT);
     event SelfDestructed(address _owner, address _self);
 
-    constructor(address _NFT) OwnableUpgraded() PausableUpgraded() public {
+    constructor(address _NFT) Pausable() public {
         NFT = _NFT;
         emit InitializedNFT(NFT);
     }
@@ -37,7 +36,7 @@ contract Donations is OwnableUpgraded, PausableUpgraded {
         emit Donated(_msgSender(), msg.value);
     }
 
-    function setNFT(address _NFT) external onlyOwner() whenPaused() {
+    function setNFT(address _NFT) external onlyOwner() {
         // Over time new iterations of (collectibles) NFTs shall be issued.
 
         // For user convenience it would be better to inform the user instead of just changing

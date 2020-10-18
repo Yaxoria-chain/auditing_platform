@@ -2,10 +2,9 @@
 
 pragma solidity ^0.6.10;
 
-import "./PausableUpgraded.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
+import "./Pausable.sol";
 
-contract Platform is Ownable, PausableUpgraded {
+contract Platform is Pausable {
 
     address public NFT;
     address public dataStore;
@@ -24,7 +23,7 @@ contract Platform is Ownable, PausableUpgraded {
     event PausedDataStore(  address indexed _sender, address indexed _dataStore);
     event UnpausedDataStore(address indexed _sender, address indexed _dataStore);
 
-    constructor(address _NFT, address _dataStore) Ownable() PausableUpgraded() public {
+    constructor(address _NFT, address _dataStore) Pausable() public {
         NFT = _NFT;
         dataStore = _dataStore;
 

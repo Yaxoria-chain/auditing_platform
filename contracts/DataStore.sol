@@ -2,10 +2,9 @@
 
 pragma solidity ^0.6.10;
 
-import "./PausableUpgraded.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
+import "./Pausable.sol";
 
-contract DataStore is Ownable, PausableUpgraded {
+contract DataStore is Pausable {
 
     // Daisy chain the data stores backwards to allow recursive backwards search.
     address private previousDataStore;
@@ -38,7 +37,7 @@ contract DataStore is Ownable, PausableUpgraded {
     // Completed audits
     event NewRecord(address indexed _auditor, string indexed _hash, bool indexed _approved);
     
-    constructor() Ownable() PausableUpgraded() public {}
+    constructor() Pausable() public {}
 
     function isAuditor(address _auditor) external view returns (bool) {
         return _isAuditor(_auditor);
