@@ -16,7 +16,7 @@ contract Token is Ownable, ERC721 {
     event MintedToken(address _recipient, uint256 _tokenId);
     event TransferAttempted(address _from, address _to, uint256 _tokenId, string _message);
 
-    constructor() Ownable() ERC721("Word", "WORD") public {}
+    constructor() Ownable() ERC721("Audit Archive NFT", "Audit Archive") public {}
 
     function mint(address _auditorAddr, address _contract, bool _approved, bytes calldata _hash) external onlyOwner() {
 
