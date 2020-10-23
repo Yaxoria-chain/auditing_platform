@@ -21,7 +21,14 @@ contract ToDo is Auditable {
         string task;
     }
 
-    mapping(address => Task[]) tasks;
+    // keep your naughtiness to yourself
+    mapping(address => Task[]) private tasks;
+
+    event AddedTask(            address _creator, uint256 _taskID);
+    event CompletedTask(        address _creator, uint256 _taskID);
+    event RevertedTask(         address _creator, uint256 _taskID);
+    event UpdatedDescription(   address _creator, uint256 _taskID);
+    event UpdatedPriority(      address _creator, uint256 _taskID);
 
     constructor(address _auditor, address _platform) Auditable(_auditor, _platform) public {}
 
@@ -51,38 +58,54 @@ contract ToDo is Auditable {
             completed: false, 
             task: _task
         }));
+
+        emit AddedTask(_msgSender(), tasks[_msgSender()].length);
     }
     
     function changeTaskPriority(uint256 _taskID, uint256 _priority) external isApproved() taskExists(_taskID) {
+        uint256 id = _taskID;
         _taskID = safeTaskID(_taskID);
         
         require(!tasks[_msgSender()][_taskID].completed, "Cannot edit completed task");
+        require(tasks[_msgSender()][_taskID].priority != _priority, "New priority must be different");
         
         tasks[_msgSender()][_taskID].priority = _priority;
+
+        emit UpdatedPriority(_msgSender(), id);
     }
     
     function changeTaskDescription(uint256 _taskID, string calldata _task) external isApproved() taskExists(_taskID) {
+        uint256 id = _taskID;
         _taskID = safeTaskID(_taskID);
         
         require(!tasks[_msgSender()][_taskID].completed, "Cannot edit completed task");
+        require(keccak256(abi.encodePacked(tasks[_msgSender()][_taskID].task)) != keccak256(abi.encodePacked(_task)), "New description must be different");
         
         tasks[_msgSender()][_taskID].task = _task;
+
+        emit UpdatedDescription(_msgSender(), id);
     }
     
     function completeTask(uint256 _taskID) external isApproved() taskExists(_taskID) {
+        uint256 id = _taskID;
         _taskID = safeTaskID(_taskID);
         
         require(!tasks[_msgSender()][_taskID].completed, "Task has already been completed");
         
         tasks[_msgSender()][_taskID].completed = true;
+
+        emit CompletedTask(_msgSender(), id);
     }
 
     function undoTask(uint256 _taskID) external isApproved() taskExists(_taskID) {
+        uint256 id = _taskID;
         _taskID = safeTaskID(_taskID);
         
         require(tasks[_msgSender()][_taskID].completed, "Task has not been completed");
 
         tasks[_msgSender()][_taskID].completed = false;
+
+        emit RevertedTask(_msgSender(), id);
     }
     
     function taskCount() external isApproved() view returns (uint256) {
