@@ -2,7 +2,94 @@
 
 pragma solidity ^0.6.10;
 
-import "./Pausable.sol";
+
+abstract contract Context {
+    function _msgSender() internal view virtual returns (address payable) {
+        return msg.sender;
+    }
+
+    function _msgData() internal view virtual returns (bytes memory) {
+        this; // silence state mutability warning without generating bytecode - see https://github.com/ethereum/solidity/issues/2691
+        return msg.data;
+    }
+}
+
+contract Ownable is Context {
+
+    // We need owner to be payable so this contract is basically the same + some improvements
+    // double underscore so that we can use external/internal visibility (automatic getter blocks otherwise)
+    address payable private __owner;
+
+    modifier onlyOwner() {
+        require(__owner == _msgSender(), "Ownable: caller is not the owner");
+        _;
+    }
+
+    event OwnershipTransferred(address indexed _previousOwner, address indexed _newOwner);
+
+    constructor() internal {
+        __owner = _msgSender();
+        emit OwnershipTransferred(address(0), __owner);  
+    }
+
+    function owner() external view returns (address payable) {
+        return _owner();
+    }
+
+    function _owner() internal view returns (address payable) {
+        return __owner;
+    }
+
+    function renounceOwnership() external onlyOwner() {
+        address prevOwner = __owner;
+        __owner = address(0);
+
+        emit OwnershipTransferred(prevOwner, __owner);
+    }
+
+    function transferOwnership(address payable _newOwner) external onlyOwner() {
+        require(_newOwner != address(0), "Ownable: new owner is the zero address");
+
+        address prevOwner = __owner;
+        __owner = _newOwner;
+
+        emit OwnershipTransferred(prevOwner, __owner);
+    }
+}
+
+contract Pausable is Ownable {
+
+    bool private _paused;
+
+    modifier whenNotPaused() {
+        require(!_paused, "Action is active");
+        _;
+    }
+
+    modifier whenPaused() {
+        require(_paused, "Action is suspended");
+        _;
+    }
+
+    event Paused(   address indexed _sender);
+    event Unpaused( address indexed _sender);
+
+    constructor () internal {}
+
+    function paused() external view returns (bool) {
+        return _paused;
+    }
+
+    function pause() external onlyOwner() whenNotPaused() {
+        _paused = true;
+        emit Paused(_msgSender());
+    }
+
+    function unpause() external onlyOwner() whenPaused() {
+        _paused = false;
+        emit Unpaused(_msgSender());
+    }
+}
 
 contract Platform is Pausable {
 

@@ -6,7 +6,7 @@ import "./Ownable.sol";
 import "@openzeppelin/contracts/math/SafeMath.sol";
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 
-contract Token is Ownable, ERC721 {
+contract AuditNFT is Ownable, ERC721 {
 
     using SafeMath for uint256;
 

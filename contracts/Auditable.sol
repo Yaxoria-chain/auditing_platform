@@ -99,7 +99,11 @@ contract Auditable is Ownable {
         approved = true;
 
         // Delegate the call via the platform to complete the audit        
-        platform.delegatecall(abi.encodeWithSignature("completeAudit(address, bool, bytes)", address(this), approved, abi.encodePacked(_hash)));
+        (bool _success, ) = platform.delegatecall(abi.encodeWithSignature("completeAudit(address, bool, bytes)", address(this), approved, abi.encodePacked(_hash)));
+
+        if (!_success) {
+            revert("Unknown error, up the chain, when approving the audit");
+        }
 
         emit ApprovedAudit(_msgSender());
     }
@@ -120,7 +124,11 @@ contract Auditable is Ownable {
         approved = false;
 
         // Delegate the call via the platform to complete the audit
-        platform.delegatecall(abi.encodeWithSignature("completeAudit(address, bool, bytes)", address(this), approved, abi.encodePacked(_hash)));
+        (bool _success, ) = platform.delegatecall(abi.encodeWithSignature("completeAudit(address, bool, bytes)", address(this), approved, abi.encodePacked(_hash)));
+
+        if (!_success) {
+            revert("Unknown error, up the chain, when opposing the audit");
+        }
 
         emit OpposedAudit(_msgSender());
     }
