@@ -56,7 +56,7 @@ contract AuditNFT is Ownable, ERC721 {
     }
 
     function addressToString(address _address) private pure returns (string memory) {
-        // utility function
+        // utility function found on stackoverflow
         bytes32 _bytes = bytes32(uint256(_address));
         bytes memory HEX = "0123456789abcdef";
         bytes memory _addr = new bytes(42);

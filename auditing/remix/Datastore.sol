@@ -2,14 +2,253 @@
 
 pragma solidity ^0.6.10;
 
-import "./Pausable.sol";
+
+library SafeMath {
+    /**
+     * @dev Returns the addition of two unsigned integers, reverting on
+     * overflow.
+     *
+     * Counterpart to Solidity's `+` operator.
+     *
+     * Requirements:
+     *
+     * - Addition cannot overflow.
+     */
+    function add(uint256 a, uint256 b) internal pure returns (uint256) {
+        uint256 c = a + b;
+        require(c >= a, "SafeMath: addition overflow");
+
+        return c;
+    }
+
+    /**
+     * @dev Returns the subtraction of two unsigned integers, reverting on
+     * overflow (when the result is negative).
+     *
+     * Counterpart to Solidity's `-` operator.
+     *
+     * Requirements:
+     *
+     * - Subtraction cannot overflow.
+     */
+    function sub(uint256 a, uint256 b) internal pure returns (uint256) {
+        return sub(a, b, "SafeMath: subtraction overflow");
+    }
+
+    /**
+     * @dev Returns the subtraction of two unsigned integers, reverting with custom message on
+     * overflow (when the result is negative).
+     *
+     * Counterpart to Solidity's `-` operator.
+     *
+     * Requirements:
+     *
+     * - Subtraction cannot overflow.
+     */
+    function sub(uint256 a, uint256 b, string memory errorMessage) internal pure returns (uint256) {
+        require(b <= a, errorMessage);
+        uint256 c = a - b;
+
+        return c;
+    }
+
+    /**
+     * @dev Returns the multiplication of two unsigned integers, reverting on
+     * overflow.
+     *
+     * Counterpart to Solidity's `*` operator.
+     *
+     * Requirements:
+     *
+     * - Multiplication cannot overflow.
+     */
+    function mul(uint256 a, uint256 b) internal pure returns (uint256) {
+        // Gas optimization: this is cheaper than requiring 'a' not being zero, but the
+        // benefit is lost if 'b' is also tested.
+        // See: https://github.com/OpenZeppelin/openzeppelin-contracts/pull/522
+        if (a == 0) {
+            return 0;
+        }
+
+        uint256 c = a * b;
+        require(c / a == b, "SafeMath: multiplication overflow");
+
+        return c;
+    }
+
+    /**
+     * @dev Returns the integer division of two unsigned integers. Reverts on
+     * division by zero. The result is rounded towards zero.
+     *
+     * Counterpart to Solidity's `/` operator. Note: this function uses a
+     * `revert` opcode (which leaves remaining gas untouched) while Solidity
+     * uses an invalid opcode to revert (consuming all remaining gas).
+     *
+     * Requirements:
+     *
+     * - The divisor cannot be zero.
+     */
+    function div(uint256 a, uint256 b) internal pure returns (uint256) {
+        return div(a, b, "SafeMath: division by zero");
+    }
+
+    /**
+     * @dev Returns the integer division of two unsigned integers. Reverts with custom message on
+     * division by zero. The result is rounded towards zero.
+     *
+     * Counterpart to Solidity's `/` operator. Note: this function uses a
+     * `revert` opcode (which leaves remaining gas untouched) while Solidity
+     * uses an invalid opcode to revert (consuming all remaining gas).
+     *
+     * Requirements:
+     *
+     * - The divisor cannot be zero.
+     */
+    function div(uint256 a, uint256 b, string memory errorMessage) internal pure returns (uint256) {
+        require(b > 0, errorMessage);
+        uint256 c = a / b;
+        // assert(a == b * c + a % b); // There is no case in which this doesn't hold
+
+        return c;
+    }
+
+    /**
+     * @dev Returns the remainder of dividing two unsigned integers. (unsigned integer modulo),
+     * Reverts when dividing by zero.
+     *
+     * Counterpart to Solidity's `%` operator. This function uses a `revert`
+     * opcode (which leaves remaining gas untouched) while Solidity uses an
+     * invalid opcode to revert (consuming all remaining gas).
+     *
+     * Requirements:
+     *
+     * - The divisor cannot be zero.
+     */
+    function mod(uint256 a, uint256 b) internal pure returns (uint256) {
+        return mod(a, b, "SafeMath: modulo by zero");
+    }
+
+    /**
+     * @dev Returns the remainder of dividing two unsigned integers. (unsigned integer modulo),
+     * Reverts with custom message when dividing by zero.
+     *
+     * Counterpart to Solidity's `%` operator. This function uses a `revert`
+     * opcode (which leaves remaining gas untouched) while Solidity uses an
+     * invalid opcode to revert (consuming all remaining gas).
+     *
+     * Requirements:
+     *
+     * - The divisor cannot be zero.
+     */
+    function mod(uint256 a, uint256 b, string memory errorMessage) internal pure returns (uint256) {
+        require(b != 0, errorMessage);
+        return a % b;
+    }
+}
+
+abstract contract Context {
+    function _msgSender() internal view virtual returns (address payable) {
+        return msg.sender;
+    }
+
+    function _msgData() internal view virtual returns (bytes memory) {
+        this; // silence state mutability warning without generating bytecode - see https://github.com/ethereum/solidity/issues/2691
+        return msg.data;
+    }
+}
+
+contract Ownable is Context {
+
+    // We need owner to be payable so this contract is basically the same + some improvements
+    // double underscore so that we can use external/internal visibility (automatic getter blocks otherwise)
+    address payable private __owner;
+
+    modifier onlyOwner() {
+        require(__owner == _msgSender(), "Ownable: caller is not the owner");
+        _;
+    }
+
+    event OwnershipTransferred(address indexed _previousOwner, address indexed _newOwner);
+
+    constructor() internal {
+        __owner = _msgSender();
+        emit OwnershipTransferred(address(0), __owner);  
+    }
+
+    function owner() external view returns (address payable) {
+        return _owner();
+    }
+
+    function _owner() internal view returns (address payable) {
+        return __owner;
+    }
+
+    function renounceOwnership() external onlyOwner() {
+        address prevOwner = __owner;
+        __owner = address(0);
+
+        emit OwnershipTransferred(prevOwner, __owner);
+    }
+
+    function transferOwnership(address payable _newOwner) external onlyOwner() {
+        require(_newOwner != address(0), "Ownable: new owner is the zero address");
+
+        address prevOwner = __owner;
+        __owner = _newOwner;
+
+        emit OwnershipTransferred(prevOwner, __owner);
+    }
+}
+
+contract Pausable is Ownable {
+
+    bool private _paused;
+
+    modifier whenNotPaused() {
+        require(!_paused, "Action is active");
+        _;
+    }
+
+    modifier whenPaused() {
+        require(_paused, "Action is suspended");
+        _;
+    }
+
+    event Paused(   address indexed _sender);
+    event Unpaused( address indexed _sender);
+
+    constructor () internal {}
+
+    function paused() external view returns (bool) {
+        return _paused;
+    }
+
+    function pause() external onlyOwner() whenNotPaused() {
+        _paused = true;
+        emit Paused(_msgSender());
+    }
+
+    function unpause() external onlyOwner() whenPaused() {
+        _paused = false;
+        emit Unpaused(_msgSender());
+    }
+}
 
 contract Datastore is Pausable {
+    
+    using SafeMath for uint256;
 
     // Daisy chain the data stores backwards to allow recursive backwards search.
     address public previousDatastore;
 
     string constant public version = "Demo: 1";
+    
+    // Stats for auditors and contracts
+    uint256 public activeAuditorCount;
+    uint256 public suspendedAuditorCount;
+
+    uint256 public approvedContractCount;
+    uint256 public opposedContractCount;
 
     struct Auditor {
         bool     isAuditor;
@@ -99,6 +338,8 @@ contract Datastore is Pausable {
 
         auditors[_auditor].isAuditor = true;
         auditors[_auditor].auditor = _auditor;
+        
+        activeAuditorCount.add(1);
 
         emit AddedAuditor(_msgSender(), _auditor);
     }
@@ -110,6 +351,9 @@ contract Datastore is Pausable {
         require(_isAuditor(_auditor), "Auditor has already been suspended");
 
         auditors[_auditor].isAuditor = false;
+        
+        activeAuditorCount.sub(1);
+        suspendedAuditorCount.add(1);
 
         emit SuspendedAuditor(_msgSender(), _auditor);
     }
@@ -119,6 +363,9 @@ contract Datastore is Pausable {
         require(!_isAuditor(_auditor), "Auditor already has active status");
 
         auditors[_auditor].isAuditor = true;
+        
+        activeAuditorCount.add(1);
+        suspendedAuditorCount.sub(1);
 
         emit ReinstatedAuditor(_msgSender(), _auditor);
     }
@@ -136,8 +383,10 @@ contract Datastore is Pausable {
 
         if (_approved) {
             auditors[_auditor].approvedContracts.push(_hash);
+            approvedContractCount.add(1);
         } else {
             auditors[_auditor].opposedContracts.push(_hash);
+            opposedContractCount.add(1);
         }
 
         contracts[_hash].auditor = _auditor;
@@ -240,3 +489,5 @@ contract Datastore is Pausable {
         emit LinkedDataStore(_msgSender(), previousDatastore);
     }
 }
+
+

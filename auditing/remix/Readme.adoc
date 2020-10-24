@@ -1,0 +1,15 @@
+This is not meant for production as there is a lot of duplicated code pasted directly into each file to make imports not be a pain.
+This is meant for QA testing as parts may not function as desired.
+
+Here are the steps to use this in remix.
+
+1) Deploy the data store
+2) Deploy the Audit NFT
+3) Deploy the Platform with the 2 parameters required (data store address, audit NFT address)
+4) Transfer ownership to the platform in the data store and the audit NFT by going into the data store and the audit NFT respectively and using the transferOwnership
+	function with the address of the platform
+5) Deploy the ToDo with the 2 parameters required (auditor address, platform address) # note: I recommend that you use the default address selected out of the 10 that
+	remix provides so that you do not have to think about which one you have added
+6) To make the ToDo usable you must use the function setContractCreationHash with any address but remember which address you used because you need that same address to
+	either approve or oppose the contract (approve to unlock functionality)
+

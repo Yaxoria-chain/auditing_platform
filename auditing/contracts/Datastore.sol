@@ -2,104 +2,24 @@
 
 pragma solidity ^0.6.10;
 
-
-abstract contract Context {
-    function _msgSender() internal view virtual returns (address payable) {
-        return msg.sender;
-    }
-
-    function _msgData() internal view virtual returns (bytes memory) {
-        this; // silence state mutability warning without generating bytecode - see https://github.com/ethereum/solidity/issues/2691
-        return msg.data;
-    }
-}
-
-
-contract Ownable is Context {
-
-    // We need owner to be payable so this contract is basically the same + some improvements
-    // double underscore so that we can use external/internal visibility (automatic getter blocks otherwise)
-    address payable private __owner;
-
-    modifier onlyOwner() {
-        require(__owner == _msgSender(), "Ownable: caller is not the owner");
-        _;
-    }
-
-    event OwnershipTransferred(address indexed _previousOwner, address indexed _newOwner);
-
-    constructor() internal {
-        __owner = _msgSender();
-        emit OwnershipTransferred(address(0), __owner);  
-    }
-
-    function owner() external view returns (address payable) {
-        return _owner();
-    }
-
-    function _owner() internal view returns (address payable) {
-        return __owner;
-    }
-
-    function renounceOwnership() external onlyOwner() {
-        address prevOwner = __owner;
-        __owner = address(0);
-
-        emit OwnershipTransferred(prevOwner, __owner);
-    }
-
-    function transferOwnership(address payable _newOwner) external onlyOwner() {
-        require(_newOwner != address(0), "Ownable: new owner is the zero address");
-
-        address prevOwner = __owner;
-        __owner = _newOwner;
-
-        emit OwnershipTransferred(prevOwner, __owner);
-    }
-}
-
-
-contract Pausable is Ownable {
-
-    bool private _paused;
-
-    modifier whenNotPaused() {
-        require(!_paused, "Action is active");
-        _;
-    }
-
-    modifier whenPaused() {
-        require(_paused, "Action is suspended");
-        _;
-    }
-
-    event Paused(   address indexed _sender);
-    event Unpaused( address indexed _sender);
-
-    constructor () internal {}
-
-    function paused() external view returns (bool) {
-        return _paused;
-    }
-
-    function pause() external onlyOwner() whenNotPaused() {
-        _paused = true;
-        emit Paused(_msgSender());
-    }
-
-    function unpause() external onlyOwner() whenPaused() {
-        _paused = false;
-        emit Unpaused(_msgSender());
-    }
-}
-
+import "./Pausable.sol";
+import "@openzeppelin/contracts/math/SafeMath.sol";
 
 contract Datastore is Pausable {
+
+    using SafeMath for uint256;
 
     // Daisy chain the data stores backwards to allow recursive backwards search.
     address public previousDatastore;
 
     string constant public version = "Demo: 1";
+
+    // Stats for auditors and contracts
+    uint256 public activeAuditorCount;
+    uint256 public suspendedAuditorCount;
+
+    uint256 public approvedContractCount;
+    uint256 public opposedContractCount;
 
     struct Auditor {
         bool     isAuditor;
@@ -190,6 +110,8 @@ contract Datastore is Pausable {
         auditors[_auditor].isAuditor = true;
         auditors[_auditor].auditor = _auditor;
 
+        activeAuditorCount.add(1);
+
         emit AddedAuditor(_msgSender(), _auditor);
     }
 
@@ -201,6 +123,9 @@ contract Datastore is Pausable {
 
         auditors[_auditor].isAuditor = false;
 
+        activeAuditorCount.sub(1);
+        suspendedAuditorCount.add(1);
+
         emit SuspendedAuditor(_msgSender(), _auditor);
     }
 
@@ -209,6 +134,9 @@ contract Datastore is Pausable {
         require(!_isAuditor(_auditor), "Auditor already has active status");
 
         auditors[_auditor].isAuditor = true;
+
+        activeAuditorCount.add(1);
+        suspendedAuditorCount.sub(1);
 
         emit ReinstatedAuditor(_msgSender(), _auditor);
     }
@@ -226,8 +154,10 @@ contract Datastore is Pausable {
 
         if (_approved) {
             auditors[_auditor].approvedContracts.push(_hash);
+            approvedContractCount.add(1);
         } else {
             auditors[_auditor].opposedContracts.push(_hash);
+            opposedContractCount.add(1);
         }
 
         contracts[_hash].auditor = _auditor;
@@ -330,4 +260,3 @@ contract Datastore is Pausable {
         emit LinkedDataStore(_msgSender(), previousDatastore);
     }
 }
-
