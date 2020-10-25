@@ -6,14 +6,14 @@ import "./Pausable.sol";
 import "@openzeppelin/contracts/math/SafeMath.sol";
 
 contract Datastore is Pausable {
-
+    
     using SafeMath for uint256;
 
     // Daisy chain the data stores backwards to allow recursive backwards search.
     address public previousDatastore;
 
     string constant public version = "Demo: 1";
-
+    
     // Stats for auditors and contracts
     uint256 public activeAuditorCount;
     uint256 public suspendedAuditorCount;
@@ -77,18 +77,26 @@ contract Datastore is Pausable {
         );
     }
 
-    // check the length, will it underflow?
     function auditorApprovedContract(address _auditor, uint256 _index) external view returns (string memory) {
         require(_hasAuditorRecord(_auditor), "No auditor record in the current store");
-        require(_index <= auditors[_auditor].approvedContracts.length - 1, "Index is too large, array out of bounds");
+        require(0 < auditors[_auditor].approvedContracts.length, "Approved list is empty");
+        require(_index <= auditors[_auditor].approvedContracts.length, "Record does not exist");
+
+        if (_index != 0) {
+            _index = _index.sub(1);
+        }
 
         return auditors[_auditor].approvedContracts[_index];
     }
 
-    // check the length, will it underflow?
     function auditorOpposedContract(address _auditor, uint256 _index) external view returns (string memory) {
         require(_hasAuditorRecord(_auditor), "No auditor record in the current store");
-        require(_index <= auditors[_auditor].opposedContracts.length - 1, "Index is too large, array out of bounds");
+        require(0 < auditors[_auditor].opposedContracts.length, "Opposed list is empty");
+        require(_index <= auditors[_auditor].opposedContracts.length, "Record does not exist");
+
+        if (_index != 0) {
+            _index = _index.sub(1);
+        }
 
         return auditors[_auditor].opposedContracts[_index];
     }
@@ -109,8 +117,8 @@ contract Datastore is Pausable {
 
         auditors[_auditor].isAuditor = true;
         auditors[_auditor].auditor = _auditor;
-
-        activeAuditorCount.add(1);
+        
+        activeAuditorCount = activeAuditorCount.add(1);
 
         emit AddedAuditor(_msgSender(), _auditor);
     }
@@ -122,9 +130,9 @@ contract Datastore is Pausable {
         require(_isAuditor(_auditor), "Auditor has already been suspended");
 
         auditors[_auditor].isAuditor = false;
-
-        activeAuditorCount.sub(1);
-        suspendedAuditorCount.add(1);
+        
+        activeAuditorCount = activeAuditorCount.sub(1);
+        suspendedAuditorCount = suspendedAuditorCount.add(1);
 
         emit SuspendedAuditor(_msgSender(), _auditor);
     }
@@ -134,9 +142,9 @@ contract Datastore is Pausable {
         require(!_isAuditor(_auditor), "Auditor already has active status");
 
         auditors[_auditor].isAuditor = true;
-
-        activeAuditorCount.add(1);
-        suspendedAuditorCount.sub(1);
+        
+        activeAuditorCount = activeAuditorCount.add(1);
+        suspendedAuditorCount = suspendedAuditorCount.sub(1);
 
         emit ReinstatedAuditor(_msgSender(), _auditor);
     }
@@ -154,10 +162,10 @@ contract Datastore is Pausable {
 
         if (_approved) {
             auditors[_auditor].approvedContracts.push(_hash);
-            approvedContractCount.add(1);
+            approvedContractCount = approvedContractCount.add(1);
         } else {
             auditors[_auditor].opposedContracts.push(_hash);
-            opposedContractCount.add(1);
+            opposedContractCount = opposedContractCount.add(1);
         }
 
         contracts[_hash].auditor = _auditor;
@@ -181,6 +189,8 @@ contract Datastore is Pausable {
             // Do not rewrite previous audits into each new datastore as that will eventually become too expensive
             auditors[_auditor].isAuditor = true;
             auditors[_auditor].auditor = _auditor;
+
+            activeAuditorCount = activeAuditorCount.add(1);
 
             emit AcceptedMigration(_migrator, _auditor);
         } else {
@@ -225,8 +235,9 @@ contract Datastore is Pausable {
         } else if (previousDatastore != address(0)) {
             (bool success, bytes memory data) = previousDatastore.staticcall(abi.encodeWithSignature("contractDetailsRecursiveSearch(address)", _contract));
 
-            // This won't work because of breaking solidity changes, have to figure out the data conversion above
-            // (_auditor, _approved) = previousDatastore.call(abi.encodeWithSignature("contractDetailsRecursiveSearch(string)", _contract));
+            require(success, string(abi.encodePacked("Unknown error when recursing in datastore version: ", version)));
+            
+            (_auditor, _approved) = abi.decode(data, (address, bool));
         } else {
             revert("No contract record in any data store");
         }
@@ -246,8 +257,9 @@ contract Datastore is Pausable {
         } else if (previousDatastore != address(0)) {
             (bool success, bytes memory data) = previousDatastore.staticcall(abi.encodeWithSignature("isAuditorRecursiveSearch(address)", _auditor));
             
-            // This won't work because of breaking solidity changes, have to figure out the data conversion above
-            // isAnAuditor = previousDatastore.call(abi.encodeWithSignature("isAuditorRecursiveSearch(address)", _auditor));
+            require(success, string(abi.encodePacked("Unknown error when recursing in datastore version: ", version)));
+
+            isAnAuditor = abi.decode(data, (bool));
         } else {
             revert("No auditor record in any data store");
         }

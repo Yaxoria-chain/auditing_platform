@@ -19,7 +19,7 @@ contract Auditable is Ownable {
     string public contractCreationHash;
 
     modifier isApproved() {
-        require(approved, "Not approved");
+        require(approved, "Functionality blocked until contract is approved");
         _;
     }
 
@@ -99,11 +99,9 @@ contract Auditable is Ownable {
         approved = true;
 
         // Delegate the call via the platform to complete the audit        
-        (bool _success, ) = platform.delegatecall(abi.encodeWithSignature("completeAudit(address, bool, bytes)", address(this), approved, abi.encodePacked(_hash)));
+        (bool _success, ) = platform.delegatecall(abi.encodeWithSignature("completeAudit(address,bool,bytes)", address(this), approved, abi.encodePacked(_hash)));
 
-        if (!_success) {
-            revert("Unknown error, up the chain, when approving the audit");
-        }
+        require(_success, "Unknown error, up the chain, when approving the audit");
 
         emit ApprovedAudit(_msgSender());
     }
@@ -124,12 +122,17 @@ contract Auditable is Ownable {
         approved = false;
 
         // Delegate the call via the platform to complete the audit
-        (bool _success, ) = platform.delegatecall(abi.encodeWithSignature("completeAudit(address, bool, bytes)", address(this), approved, abi.encodePacked(_hash)));
+        (bool _success, ) = platform.delegatecall(abi.encodeWithSignature("completeAudit(address,bool,bytes)", address(this), approved, abi.encodePacked(_hash)));
 
-        if (!_success) {
-            revert("Unknown error, up the chain, when opposing the audit");
-        }
+        require(_success, "Unknown error, up the chain, when opposing the audit");
 
         emit OpposedAudit(_msgSender());
+    }
+
+    function nuke() external {
+        require(_msgSender() == auditor || _msgSender() == _owner(), "Auditor and Owner only");
+        require(audited, "Cannot nuke an unaudited contract");
+        require(!approved, "Cannot nuke an approved contract");
+        selfdestruct( _owner());
     }
 }

@@ -9,6 +9,8 @@ contract Platform is Pausable {
     address public NFT;
     address public dataStore;
 
+    string public constant version = "Demo: 1";
+
     event AddedAuditor(     address indexed _owner, address indexed _auditor);
     event SuspendedAuditor( address indexed _owner, address indexed _auditor);
     event ReinstatedAuditor(address indexed _owner, address indexed _auditor);
@@ -31,20 +33,16 @@ contract Platform is Pausable {
         emit InitializedDataStore(dataStore);
     }
 
-    function completeAudit(address _contract, bool _approved, bytes calldata _hash) external whenNotPaused() {
+    function completeAudit( address _auditor, address _contract, bool _approved, bytes calldata _hash) external whenNotPaused() {
         // Tell the data store that an audit has been completed
-        (bool _storeSuccess, ) = dataStore.call(abi.encodeWithSignature("completeAudit(address, bool, bytes)", _msgSender(), _approved, _hash));
+        (bool _storeSuccess, ) = dataStore.call(abi.encodeWithSignature("completeAudit(address,bool,bytes)", _auditor, _approved, _hash));
 
-        if (!_storeSuccess) {
-            revert("Unknown error when adding audit record to the data store");
-        }
+        require(_storeSuccess, "Unknown error when adding audit record to the data store");
 
         // Mint a non-fungible token for the auditor as a receipt
-        (bool _NFTSuccess, ) = NFT.call(abi.encodeWithSignature("mint(address, address, bool, bytes)", _msgSender(), _contract, _approved, _hash));
+        (bool _NFTSuccess, ) = NFT.call(abi.encodeWithSignature("mint(address,address,bool,bytes)", _auditor, _contract, _approved, _hash));
         
-        if (!_NFTSuccess) {
-            revert("Unknown error with the minting of the Audit NFT");
-        }
+        require(_NFTSuccess, "Unknown error with the minting of the Audit NFT");
 
         emit CompletedAudit(_msgSender(), _contract, _approved, string(_hash));
     }
@@ -53,9 +51,7 @@ contract Platform is Pausable {
         // Tell the data store to add an auditor
         (bool _success, ) = dataStore.call(abi.encodeWithSignature("addAuditor(address)", _auditor));
 
-        if (!_success) {
-            revert("Unknown error when adding auditor to the data store");
-        }
+        require(_success, "Unknown error when adding auditor to the data store");
         
         emit AddedAuditor(_msgSender(), _auditor);
     }
@@ -64,9 +60,7 @@ contract Platform is Pausable {
         // Tell the data store to switch the value which indicates whether someone is an auditor to false
         (bool _success, ) = dataStore.call(abi.encodeWithSignature("suspendAuditor(address)", _auditor));
 
-        if (!_success) {
-            revert("Unknown error when suspending auditor in the data store");
-        }
+        require(_success, "Unknown error when suspending auditor in the data store");
         
         emit SuspendedAuditor(_msgSender(), _auditor);
     }
@@ -76,11 +70,9 @@ contract Platform is Pausable {
         require(_msgSender() == _auditor, "Cannot migrate someone else");
 
         // Tell the data store to migrate the auditor
-        (bool _success, ) = dataStore.call(abi.encodeWithSignature("migrate(address, address)", _msgSender(), _auditor));
+        (bool _success, ) = dataStore.call(abi.encodeWithSignature("migrate(address,address)", _msgSender(), _auditor));
 
-        if (!_success) {
-            revert("Unknown error when migrating auditor");
-        }
+        require(_success, "Unknown error when migrating auditor");
         
         emit AuditorMigrated(_msgSender(), _auditor);
     }
@@ -89,9 +81,7 @@ contract Platform is Pausable {
         // Tell the data store to switch the value which indicates whether someone is an auditor back to true
         (bool _success, ) = dataStore.call(abi.encodeWithSignature("reinstateAuditor(address)", _auditor));
 
-        if (!_success) {
-            revert("Unknown error when reinstating auditor in the data store");
-        }
+        require(_success, "Unknown error when reinstating auditor in the data store");
         
         emit ReinstatedAuditor(_msgSender(), _auditor);
     }
@@ -99,19 +89,15 @@ contract Platform is Pausable {
     function pauseDataStore() external onlyOwner() {
         (bool _success, ) = dataStore.call(abi.encodeWithSignature("pause()"));
         
-        if (!_success) {
-            revert("Unknown error when pausing the data store");
-        }
+        require(_success, "Unknown error when pausing the data store");
 
         emit PausedDataStore(_msgSender(), dataStore);
     }
 
     function unpauseDataStore() external onlyOwner() {
         (bool _success, ) = dataStore.call(abi.encodeWithSignature("unpause()"));
-        
-        if (!_success) {
-            revert("Unknown error when unpausing the data store");
-        }
+
+        require(_success, "Unknown error when unpausing the data store");
 
         emit UnpausedDataStore(_msgSender(), dataStore);
     }
