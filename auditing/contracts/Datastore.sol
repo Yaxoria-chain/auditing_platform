@@ -43,7 +43,6 @@ contract Datastore is Pausable {
 
     // Auditor migration
     event AcceptedMigration(address indexed _migrator, address indexed _auditor);
-    event RejectedMigration(address indexed _migrator, address indexed _auditor);
 
     // Completed audits
     event NewRecord(address indexed _auditor, string indexed _hash, bool indexed _approved);
@@ -126,12 +125,17 @@ contract Datastore is Pausable {
     function suspendAuditor(address _auditor) external onlyOwner() {
         // Do not change previous stores. Setting to false in the current store should prevent actions
         // from future stores when recursively searching
-        require(_hasAuditorRecord(_auditor), "No auditor record in the current store");
-        require(_isAuditor(_auditor), "Auditor has already been suspended");
+
+        if (_hasAuditorRecord(_auditor)) {
+            if (!_isAuditor(_auditor)) {
+                revert("Auditor has already been suspended");
+            }
+            activeAuditorCount = activeAuditorCount.sub(1);
+        } else {
+            auditors[_auditor].auditor = _auditor;
+        }
 
         auditors[_auditor].isAuditor = false;
-        
-        activeAuditorCount = activeAuditorCount.sub(1);
         suspendedAuditorCount = suspendedAuditorCount.add(1);
 
         emit SuspendedAuditor(_msgSender(), _auditor);
@@ -194,8 +198,7 @@ contract Datastore is Pausable {
 
             emit AcceptedMigration(_migrator, _auditor);
         } else {
-            // Auditor has either never been in the system or have been suspended in the latest record
-            emit RejectedMigration(_migrator, _auditor);
+            revert("Auditor is either suspended or has never been in the system");
         }
     }
 
@@ -233,7 +236,7 @@ contract Datastore is Pausable {
             _auditor = contracts[_contract].auditor;
             _approved = contracts[_contract].approved;            
         } else if (previousDatastore != address(0)) {
-            (bool success, bytes memory data) = previousDatastore.staticcall(abi.encodeWithSignature("contractDetailsRecursiveSearch(address)", _contract));
+            (bool success, bytes memory data) = previousDatastore.staticcall(abi.encodeWithSignature("contractDetailsRecursiveSearch(string)", _contract));
 
             require(success, string(abi.encodePacked("Unknown error when recursing in datastore version: ", version)));
             

@@ -15,12 +15,12 @@ contract Platform is Pausable {
     event SuspendedAuditor( address indexed _owner, address indexed _auditor);
     event ReinstatedAuditor(address indexed _owner, address indexed _auditor);
 
-    event CompletedAudit(   address indexed _auditor, address indexed _contract, bool _approved, string indexed _hash);
-    event ChangedDataStore( address indexed _owner, address _dataStore);
-    event AuditorMigrated(  address indexed _sender, address indexed _auditor);
+    event CompletedAudit(   address indexed _auditor, address _caller, address indexed _contract, bool _approved, string indexed _hash);
+    event ChangedDataStore( address indexed _owner,   address _dataStore);
+    event AuditorMigrated(  address indexed _sender,  address indexed _auditor);
 
-    event InitializedNFT(address _NFT);
-    event InitializedDataStore(address _dataStore);
+    event InitializedNFT(       address _NFT);
+    event InitializedDataStore( address _dataStore);
 
     event PausedDataStore(  address indexed _sender, address indexed _dataStore);
     event UnpausedDataStore(address indexed _sender, address indexed _dataStore);
@@ -33,7 +33,7 @@ contract Platform is Pausable {
         emit InitializedDataStore(dataStore);
     }
 
-    function completeAudit( address _auditor, address _contract, bool _approved, bytes calldata _hash) external whenNotPaused() {
+    function completeAudit(address _auditor, address _contract, bool _approved, bytes calldata _hash) external whenNotPaused() {
         // Tell the data store that an audit has been completed
         (bool _storeSuccess, ) = dataStore.call(abi.encodeWithSignature("completeAudit(address,bool,bytes)", _auditor, _approved, _hash));
 
@@ -44,7 +44,7 @@ contract Platform is Pausable {
         
         require(_NFTSuccess, "Unknown error with the minting of the Audit NFT");
 
-        emit CompletedAudit(_msgSender(), _contract, _approved, string(_hash));
+        emit CompletedAudit(_auditor, _msgSender(), _contract, _approved, string(_hash));
     }
 
     function addAuditor(address _auditor) external onlyOwner() whenNotPaused() {
@@ -102,7 +102,11 @@ contract Platform is Pausable {
         emit UnpausedDataStore(_msgSender(), dataStore);
     }
 
-    function changeDataStore(address _dataStore) external onlyOwner() whenPaused() {
+    function changeDataStore(address _dataStore) external onlyOwner() {
+        (bool _success, ) = _dataStore.call(abi.encodeWithSignature("linkDataStore(address)", dataStore));
+
+        require(_success, "Unknown error when linking data stores");
+        
         dataStore = _dataStore;
         
         emit ChangedDataStore(_msgSender(), dataStore);

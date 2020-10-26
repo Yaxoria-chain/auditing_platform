@@ -133,6 +133,6 @@ contract Auditable is Ownable {
         require(_msgSender() == auditor || _msgSender() == _owner(), "Auditor and Owner only");
         require(audited, "Cannot nuke an unaudited contract");
         require(!approved, "Cannot nuke an approved contract");
-        selfdestruct( _owner());
+        selfdestruct(_owner());
     }
 }
