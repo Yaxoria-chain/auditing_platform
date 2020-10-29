@@ -11,251 +11,50 @@ The following section describes those components in greater detail.
 ToDo.sol
 ----------
 
-General Overview:
+This contract is an example contract and thus everything within it is meaningless. 
+The greater purpose is to have a generic contract which can be audited and in this case a simple ToDo contract has been created to demonstrate how the Auditable contract is meant to be applied and used.
 
-	This contract is an example contract and thus everything within it is meaningless. The greater purpose is to have a generic contract which can be audited and in this
-	case a simple ToDo contract has been created to demonstrate how the Auditable contract is meant to be applied and used.
-
-	In the real world the example contract is likely to take the form of a new investing (system) contract or perhaps a collectible etc.
-	The idea is to create whatever you wish and put it through the auditing process.
+In the real world the example contract is likely to take the form of a new investing (system) contract or perhaps a collectible etc.
+The idea is to create whatever you wish and apply the auditing contract.
 
 Auditable.sol
 ----------
 
-# TODO: tidy up this mess and move parts about the function specifics to the function section
-General Overview:
-
-	This contract is directly what the dev will be required to copy and implement within their code and it will be up to the auditor to make sure that they have done so
-	correctly.
-	Its purpose is to provide a rigid, but simple structor for the dev to follow.
-
-	The following is the expectation of how the contract will be applied:
-		- The isApproved() modifier shall be applied to every function / operation / piece of code that is written by the dev. An argument can be made that Viewing functions
-		that only return data and are not used as part of other functions to perform some operation may not require the modifier.
-		The reason that the visibility is restricted to Viewing and not Viewing & Pure is because the Pure function may be used in another function with some arguments that
-		result in some operation being carried out that does require the modifier.
-		The simplest way to think of it is that if you have written some code then it requires the use of the modifier.
-		
-		- setAuditor() can be used be either the deployer or the auditor because unknown circumstances may arise and thus one of the two may need to change the auditor
-		- setPlatform() is not just there for the purpose of the constructor and code reusability and code quality standards. Anybody can take the code and launch their own
-		Platform. The purpose is to encourage quality, standards and self policing to prevent scammers from coming in, launching unvetted code and profitting.
-		
-		- setContractCreationHash() takes the hash which is for the deployment of the contract. (As of the time of writing I have not tested this myself yet however I
-		am told that if the contract is ever self destructed then this hash may somehow allow you to go back and pull up some bytecode or something rather than a contract
-		which has almost all of its memory overwritten with 0s).
-		The deployer must set this hash before the auditor can do anything (approve / oppose the audit) and the deployer can only perform this step once to prevent them duping
-		the auditor at the same time that they approve or oppose the contract.
-		
-		- approveAudit() & opposeAudit() are similar in nature except that approve sends data to the platform stating that the auditor has approved the audit while the
-		opposeAudit() sends data stating that the auditor has opposed the audit. The auditor can only use 1 function out of the two and only one time meaning they cannot
-		go back and change their mind later.
-		If the audit is approved then functionality in the whole contract should be unlocked by the isApproved() modifier otherwise it shall be locked indefinitely.
-
-Code Signatures:
-
-- modifier isApproved()
-	Description here
-
-- function setContractCreationHash(string memory _hash) external onlyOwner()
-	Description here
-
-- function setAuditor(address _auditor) external
-	Description here
-
-- function setPlatform(address _platform) external
-	Description here
-
-- function _setAuditor(address _auditor) private
-	Description here
-
-- function _setPlatform(address _platform) private
-	Description here
-
-- function approveAudit(string memory _hash) external
-	Description here
-
-- function opposeAudit(string memory _hash) external
-	Description here
-
-
+# TODO: tidy up this mess
+This contract is directly what the dev will be required to copy and implement within their code and it will be up to the auditor to make sure that they have done so correctly.
+Its purpose is to provide a rigid, but simple structor for the dev to follow.
 
 Platform.sol
 ----------
 
 # TODO: tidy up and be more verbose
-General Overview:
-	The platform contract is meant to be the thing in the middle that allows auditors to communicate with the data store albeit it via a limited fashion.
-	It allows the owner of the platform to perform actions such as adding, suspending and reinstating the auditors.
-	The platform can be paused to prevent actions from occuring in case there is a fault discovered and likewise it can pause the datastore (and unpause them both).
-
-
-Code Signatures:
-
-- function completeAudit(address _contract, bool _approved, bytes calldata _hash) external whenNotPaused()
-	Description here
-
-- function addAuditor(address _auditor) external onlyOwner() whenNotPaused()
-	Description here
-
-- function suspendAuditor(address _auditor) external onlyOwner()
-	Description here
-
-- function migrate(address _auditor) external 
-	Description here
-
-- function reinstateAuditor(address _auditor) external onlyOwner() whenNotPaused()
-	Description here
-
-- function pauseDataStore() external onlyOwner()
-	Description here
-
-- function unpauseDataStore() external onlyOwner()
-	Description here
-
-- function changeDataStore(address _dataStore) external onlyOwner() whenPaused()
-	Description here
+The platform contract is meant to be the thing in the middle that allows auditors to communicate with the data store albeit it via a limited fashion.
+It allows the owner of the platform to perform actions such as adding, suspending and reinstating the auditors.
+The platform can be paused to prevent actions from occuring in case there is a fault discovered and likewise it can pause the datastore (and unpause them both).
 
 
 AuditNFT.sol
 ----------
 
 # TODO: tidy up and be more verbose
-General Overview:
-	The purpose of the NFT is to fulfill the role of a receipt for the auditor.
-
-
-Code Signatures:
-
-- function mint(address _auditorAddr, address _contract, bool _approved, bytes calldata _hash) external onlyOwner()
-	Description here
-
-- function _transfer(address from, address to, uint256 tokenId) internal virtual override
-	Description here
-
-- function addressToString(address _address) private pure returns (string memory)
-	Description here
-
+The purpose of the NFT is to fulfill the role of a receipt for the auditor.
 
 Datastore.sol
 ----------
 
 # TODO: tidy up and be more verbose
-General Overview:
-	The purpose of the store is self evident. We must maintain evidence of contracts that have been audited and who has audited them to allow anyone to view that
-	work and make a decision for themselves if they are comfortable with the results.
-
-
-Code Signatures:
-
-- hasAuditorRecord(address _auditor) external view returns (bool) 
-	Description here
-
-- function isAuditor(address _auditor) external view returns (bool)
-	Description here
-
-- function hasContractRecord(string memory _contract) external view returns (bool)
-	Description here
-
-- function auditorDetails(address _auditor) external view returns (bool, uint256, uint256)
-	Description here
-
-- function auditorApprovedContract(address _auditor, uint256 _index) external view returns (string memory)
-	Description here
-
-- function auditorOpposedContract(address _auditor, uint256 _index) external view returns (string memory)
-	Description here
-
-- function contractDetails(string memory _contract) external view returns (address, bool)
-	Description here
-
-- function addAuditor(address _auditor) external onlyOwner() whenNotPaused()
-	Description here
-
-- function suspendAuditor(address _auditor) external onlyOwner()
-	Description here
-
-- function reinstateAuditor(address _auditor) external onlyOwner() whenNotPaused()
-	Description here
-
-- function completeAudit(address _auditor, bool _approved, bytes calldata _txHash) external onlyOwner() whenNotPaused()
-	Description here
-
-- function migrate(address _migrator, address _auditor) external onlyOwner()
-	Description here
-
-- function _hasAuditorRecord(address _auditor) private view returns (bool)
-	Description here
-
-- function _isAuditor(address _auditor) private view returns (bool)
-	Description here
-
-- function _hasContractRecord(string memory _contract) private view returns (bool) 
-	Description here
-
-- function isAuditorRecursiveSearch(address _auditor) external view returns (bool) 
-	Description here
-
-- function contractDetailsRecursiveSearch(string memory _contract) external view returns (address, bool)
-	Description here
-
-- function _recursiveContractDetailsSearch(string memory _contract) private view returns (address, bool)
-	Description here
-
-- function _recursiveAuditorSearch(address _auditor) private view returns (bool)
-	Description here
-
-- function linkDataStore(address _dataStore) external onlyOwner()
-	Description here
-
+The purpose of the store is self evident. We must maintain evidence of contracts that have been audited and who has audited them to allow anyone to view that
+work and make a decision for themselves if they are comfortable with the results.
 
 Pausable.sol
 ----------
 
-General Overview:
-	A contract that allows us to start and stop functionality in case there is a fault discovered
-
-
-Code Signatures:
-
-- modifier whenNotPaused()
-	Description here
-
-- modifier whenPaused()
-	Description here
-
-- function paused() external view returns (bool)
-	Description here
-
-- function pause() external onlyOwner() whenNotPaused()
-	Description here
-
-- function unpause() external onlyOwner() whenPaused()
-	Description here
+A contract that allows us to start and stop functionality in case there is a fault discovered
 
 Ownable.sol
 ----------
 
-General Overview:
-	Similar to openzeppelin's implementation but with minor improvements and the owner is payable because we are using this in different projects
-
-
-Code Signatures:
-
-- modifier onlyOwner()
-	Description here
-
-- function owner() external view returns (address payable)
-	Description here
-
-- function _owner() internal view returns (address payable)
-	Description here
-
-- function renounceOwnership() external onlyOwner()
-	Description here
-
-- function transferOwnership(address payable _newOwner) external onlyOwner()
-	Description here
-
+Similar to openzeppelin's implementation but with minor improvements and the owner is payable because we are using this in different projects
 
 
 

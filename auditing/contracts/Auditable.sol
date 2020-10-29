@@ -9,33 +9,55 @@ contract Auditable is Ownable {
     address public auditor;
     address public platform;
 
-    // Indicates whether the audit has been completed or is in progress
+    /// @notice Indicates whether the audit has been completed or is in progress
+    /// @dev Audit is completed when the bool is set to true otherwise the default is false (in progress)
     bool public audited;
-    // Indicates whether the audit has been approved (true) or opposed (false)
+    
+    /// @notice Indicates whether the audit has been approved or opposed
+    /// @dev Consider this bool only after "audited" is true. Approved is true and Opposed (default) if false
     bool public approved;
 
-    // A deployed contract has a creation hash, store it so that you can access the code 
-    // post self destruct from an external location
+    /// @notice A deployed contract has a creation hash, store it so that you can access the code post self destruct
+    /// @dev When a contract is deployed the first transaction is the contract creation - use that hash
     string public contractCreationHash;
 
+    /// @notice Modifier used to block or allow method functionality based on the approval / opposition of the audit
+    /// @dev Use this on every function
     modifier isApproved() {
         require(approved, "Functionality blocked until contract is approved");
         _;
     }
 
+    /// @notice Event tracking who set the auditor and who the auditor is
+    /// @dev Index the sender and the auditor for easier searching
     event SetAuditor(   address indexed _sender, address indexed _auditor);
+    
+    /// @notice Event tracking who set the platform and which platform was set
+    /// @dev Index the sender and the platform for easier searching
     event SetPlatform(  address indexed _sender, address indexed _platform);
-
+    
+    /// @notice Event tracking the status of the audit and who the auditor is
     event ApprovedAudit(address _auditor);
-    event OpposedAudit( address _auditor);
 
+    /// @notice Event tracking the status of the audit and who the auditor is    
+    event OpposedAudit( address _auditor);
+    
+    /// @notice A contract has a transaction which is the contract creation.
+    /// @dev The contract creation hash allows one to view the bytecode of the contract even after it has self destructed
     event CreationHashSet(string _hash);
 
+    /// @notice The inheriting contract must tell us who the audit and platform are to be able to perform an audit
+    /// @param _auditor an address of a person who may or may not actually be an auditor
+    /// @param _platform an address of a contract which may or may not be a valid platform
+    /// @dev Ownable() with our implementation to be cleaner and internal because it is not meant to be public, inherit the methods and variables
     constructor(address _auditor, address _platform) Ownable() internal {
         _setAuditor(_auditor);
         _setPlatform(_platform);
     }
 
+    /// @notice Method used to set the contract creation has before the audit is completed
+    /// @dev After deploying this is the first thing that must be done by the owner and the owner only gets 1 attempt to prevent race conditions with the auditor
+    /// @param _hash The transaction hash representing the contract creation
     function setContractCreationHash(string memory _hash) external onlyOwner() {
         // Prevent the owner from setting the hash post audit for safety
         require(!audited, "Contract has already been audited");

@@ -3,13 +3,28 @@ This is meant for QA testing as parts may not function as desired.
 
 Here are the steps to use this in remix.
 
-1) Deploy the data store
-2) Deploy the Audit NFT
-3) Deploy the Platform with the 2 parameters required (data store address, audit NFT address)
-4) Transfer ownership to the platform in the data store and the audit NFT by going into the data store and the audit NFT respectively and using the transferOwnership
-	function with the address of the platform
-5) Deploy the ToDo with the 2 parameters required (auditor address, platform address) # note: I recommend that you use the default address selected out of the 10 that
-	remix provides so that you do not have to think about which one you have added
-6) To make the ToDo usable you must use the function setContractCreationHash with any address but remember which address you used because you need that same address to
-	either approve or oppose the contract (approve to unlock functionality)
+1) In remix load the files: AuditNFT, Datastore, Platform & ToDo
+2) In the plugin manager (found in the left panel depicted by a plug) find the plugins
+	Debugger 
+	Deploy & run transactions
+	Compiler
+	(May add the gas profiler too if you want to use that)
+3) In the Compile section compile each of the contracts, default settings should be fine
+4) In the Deploy section 
+	Set the Environment to JavaScript VM
+	Increase the gas limit to be 6 million
+	Deployment: (you may need to compile each time to the file you want to deploy to get the box to switch its options)
+		In the CONTRACT box select
+			AuditNFT - browser/AuditNFT.sol (then click deploy)
+			Datastore - browser/Datastore.sol (then click deploy)
+			Platform - browser/Platform.sol (takes 2 arguments which are the addresses of the deployed Audit NFT, Datastore, after that click deploy)
+			Copy the address of the platform and in the Datastore use the function transferOwnership with that address
+			Do the same for the Audit NFT with the platform address
+			ToDo - browser/ToDo.sol (takes 2 arguments which are the addresses of the auditor and the platform, for the auditor copy the address of the first account in the ACCOUNT box which is above the gas limit, the platform address is the same as the one you transferred ownership with)
+			
+5) To use the ToDo.sol you must set the hash with setContractCreationHash() and an address, I usually use the same one as the account address that I'm using for the auditor (then approve the contract but first step 6)
+
+6) In the Platform.sol you must addAuditor with the address of whoever is set in the ToDo.sol as the auditor
+
+To unlock the ToDo you must approve the contract. 
 
