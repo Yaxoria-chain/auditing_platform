@@ -6,7 +6,10 @@ import "./Ownable.sol";
 
 contract Auditable is Ownable {
 
+    /// @notice the address of the auditor who is auditing the contract that inherits from this contract
     address public auditor;
+
+    /// @notice the destination which the status of the audit is transmitted to
     address public platform;
 
     /// @notice Indicates whether the audit has been completed or is in progress
@@ -71,14 +74,20 @@ contract Auditable is Ownable {
         emit CreationHashSet(contractCreationHash);
     }
 
+    /// @notice Used to change the auditor by either the owner or auditor prior to the completion of the audit
+    /// @param _auditor an address indicating who the new auditor will be (may be a contract)
     function setAuditor(address _auditor) external {
         _setAuditor(_auditor);
     }
 
+    /// @notice Used to change the platform by either the owner or auditor prior to the completion of the audit
+    /// @param _platform an address indicating a contract which will be the new platform (middle man)
     function setPlatform(address _platform) external {
         _setPlatform(_platform);
     }
 
+    /// @dev private implementation because they should not be messing around with this in their contract
+    /// @param _auditor an address indicating who the new auditor will be (may be a contract)
     function _setAuditor(address _auditor) private {
         // If auditor bails then owner can change
         // If auditor loses contact with owner and cannot complete the audit then they can change
@@ -92,6 +101,8 @@ contract Auditable is Ownable {
         emit SetAuditor(_msgSender(), auditor);
     }
 
+    /// @dev private implementation because they should not be messing around with this in their contract
+    /// @param _platform an address indicating a contract which will be the new platform (middle man)
     function _setPlatform(address _platform) private {
         // If auditor bails then owner can change
         // If auditor loses contact with owner and cannot complete the audit then they can change
@@ -105,6 +116,9 @@ contract Auditable is Ownable {
         emit SetPlatform(_msgSender(), platform);
     }
 
+    /// @notice Auditor is in favor of the contract therefore they approve it and transmit to the platform
+    /// @param _hash The contract creation hash that the owner set
+    /// @dev The auditor and owner may conspire to use a different hash therefore the platform would yeet them after the fact - if they find out
     function approveAudit(string memory _hash) external {
         // Only the auditor should be able to approve
         require(_msgSender() == auditor, "Auditor only");
@@ -128,6 +142,9 @@ contract Auditable is Ownable {
         emit ApprovedAudit(_msgSender());
     }
 
+    /// @notice Auditor is against the contract therefore they oppose it and transmit to the platform
+    /// @param _hash The contract creation hash that the owner set
+    /// @dev The auditor and owner may conspire to use a different hash therefore the platform would yeet them after the fact - if they find out
     function opposeAudit(string memory _hash) external {
         // Only the auditor should be able to approve
         require(_msgSender() == auditor, "Auditor only");
@@ -151,6 +168,7 @@ contract Auditable is Ownable {
         emit OpposedAudit(_msgSender());
     }
 
+    /// @notice Allows the auditor or the owner to clean up after themselves and return a portion of the deployment funds if the contract is opposed
     function nuke() external {
         require(_msgSender() == auditor || _msgSender() == _owner(), "Auditor and Owner only");
         require(audited, "Cannot nuke an unaudited contract");
