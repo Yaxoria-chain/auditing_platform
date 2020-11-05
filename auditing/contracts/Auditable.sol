@@ -134,8 +134,9 @@ contract Auditable is Ownable {
         audited = true;
         approved = true;
 
-        // Delegate the call via the platform to complete the audit        
-        (bool _success, ) = platform.delegatecall(abi.encodeWithSignature("completeAudit(address,bool,bytes)", address(this), approved, abi.encodePacked(_hash)));
+        // TODO: think about the owner being sent and transfer of ownership and how that affects the store
+        // Inform the platform      
+        (bool _success, ) = platform.call(abi.encodeWithSignature("completeAudit(address,address,address,bool,bytes)",  _msgSender(), address(this), _owner(), approved, abi.encodePacked(_hash)));
 
         require(_success, "Unknown error, up the chain, when approving the audit");
 
@@ -160,8 +161,9 @@ contract Auditable is Ownable {
         audited = true;
         approved = false;
 
-        // Delegate the call via the platform to complete the audit
-        (bool _success, ) = platform.delegatecall(abi.encodeWithSignature("completeAudit(address,bool,bytes)", address(this), approved, abi.encodePacked(_hash)));
+        // TODO: think about the owner being sent and transfer of ownership and how that affects the store
+        // Inform the platform      
+        (bool _success, ) = platform.call(abi.encodeWithSignature("completeAudit(address,address,address,bool,bytes)", _msgSender(), address(this), _owner(), approved, abi.encodePacked(_hash)));
 
         require(_success, "Unknown error, up the chain, when opposing the audit");
 
@@ -173,6 +175,11 @@ contract Auditable is Ownable {
         require(_msgSender() == auditor || _msgSender() == _owner(), "Auditor and Owner only");
         require(audited, "Cannot nuke an unaudited contract");
         require(!approved, "Cannot nuke an approved contract");
+
+        (bool _success, ) = platform.call(abi.encodeWithSignature("nukedContract(address,address,string)", _msgSender(), address(this), contractCreationHash);
+
+        require(_success, "Unknown error, up the chain, when nuking the contract");
+
         selfdestruct(_owner());
     }
 }

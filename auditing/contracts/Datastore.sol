@@ -28,13 +28,33 @@ contract Datastore is Pausable {
         string[] opposedContracts;
     }
 
-    struct Contract {
-        address auditor;
-        bool    approved;
+    // TODO: redesign the structs?
+    struct Deployer {
+        ContractData data;
+        string contractHash;
+        string creationHash;
     }
 
-    mapping(address => Auditor) private auditors;
-    mapping(string => Contract) private contracts;
+    struct ContractData {
+        address auditor;
+        bool    approved;
+        bool    destructed;
+    }
+
+    struct Contract {
+        ContractData data;
+        string creationHash;
+    }
+
+    struct InverseContractLookup {
+        ContractData data;
+        string contractHash;
+    }
+
+    mapping(address => Auditor)  private auditors;
+    mapping(address => Deployer) private deployers;
+    mapping(string => Contract)  private contracts;
+    mapping(string => InverseContractLookup) private creationHash;
 
     // State changes to auditors
     event AddedAuditor(     address indexed _owner, address indexed _auditor);
@@ -45,11 +65,13 @@ contract Datastore is Pausable {
     event AcceptedMigration(address indexed _migrator, address indexed _auditor);
 
     // Completed audits
-    event NewRecord(address indexed _auditor, string indexed _hash, bool indexed _approved);
+    event NewRecord(address indexed _auditor, address _contract, string _hash, bool indexed _approved);
 
     // Daisy chain stores
     event LinkedDataStore(address indexed _owner, address indexed _dataStore);
     
+    // TODO: add in deployer lookup calls
+
     constructor() Pausable() public {}
 
     function hasAuditorRecord(address _auditor) external view returns (bool) {
@@ -63,6 +85,10 @@ contract Datastore is Pausable {
 
     function hasContractRecord(string memory _contract) external view returns (bool) {
         return _hasContractRecord(_contract);
+    }
+
+    function hasContractCreationRecord(string memory _contract) external view returns (bool) {
+        return _hasCreationRecord(_contract);
     }
 
     function auditorDetails(address _auditor) external view returns (bool, uint256, uint256) {
@@ -100,13 +126,27 @@ contract Datastore is Pausable {
         return auditors[_auditor].opposedContracts[_index];
     }
 
-    function contractDetails(string memory _contract) external view returns (address, bool) {
+    function contractDetails(string memory _contract) external view returns (address, bool, bool, string memory) {
         require(_hasContractRecord(_contract), "No contract record in the current store");
 
         return 
         (
-            contracts[_contract].auditor, 
-            contracts[_contract].approved 
+            contracts[_contract].data.auditor, 
+            contracts[_contract].data.approved,
+            contracts[_contract].data.destructed,
+            contracts[_contract].creationHash
+        );
+    }
+
+    function contractCreationDetails(string memory _creationHash) external view returns (address, bool, bool, string memory) {
+        require(_hasCreationRecord(_creationHash), "No contract record in the current store");
+
+        return 
+        (
+            creationHash[_creationHash].data.auditor, 
+            creationHash[_creationHash].data.approved,
+            creationHash[_creationHash].data.destructed,
+            creationHash[_creationHash].contractHash
         );
     }
 
@@ -153,7 +193,7 @@ contract Datastore is Pausable {
         emit ReinstatedAuditor(_msgSender(), _auditor);
     }
 
-    function completeAudit(address _auditor, bool _approved, bytes calldata _txHash) external onlyOwner() whenNotPaused() {
+    function completeAudit(address _auditor, address _contract, bool _approved, bytes calldata _txHash) external onlyOwner() whenNotPaused() {
         require(_hasAuditorRecord(_auditor), "No auditor record in the current store");
         require(_isAuditor(_auditor), "Auditor has been suspended");
 
@@ -161,9 +201,11 @@ contract Datastore is Pausable {
         // so just store the string instead ("pay up front")
         string memory _hash = string(_txHash);
 
-        // Defensively code against everything
-        require(contracts[_hash].auditor == address(0), "Contract has already been audited");
+        // TODO: Better require messages
+        require(contracts[_contract].data.auditor == address(0), "Contract has already been audited");
+        require(creationHash[_hash].data.auditor == address(0), "Contract has already been audited");
 
+        // TODO: handle both creation hash and contract hash
         if (_approved) {
             auditors[_auditor].approvedContracts.push(_hash);
             approvedContractCount = approvedContractCount.add(1);
@@ -172,10 +214,20 @@ contract Datastore is Pausable {
             opposedContractCount = opposedContractCount.add(1);
         }
 
-        contracts[_hash].auditor = _auditor;
-        contracts[_hash].approved = _approved;
+        // TODO: Add in the deployer info
 
-        emit NewRecord(_auditor, _hash, _approved);
+        // TODO: can I omit the destructed argument since the default bool is false?
+        ContractData _commonData = ContractData({auditor: _auditor, approved: _approved, destructed: false});
+
+        // TODO: _contract here is address while mapping is string. Turn mapping to address type and then same for creationHash in the inverseLookup?
+        contracts[_contract].data = _commonData;
+        contracts[_contract].creationHash = _hash
+
+        // TODO: If I change one struct does it affect every reference or are they copied into the structs?
+        creationHash[_hash].data = _commonData;
+        creationHash[_hash].contractHash = _contract;
+
+        emit NewRecord(_auditor, _contract, _hash, _approved);
     }
 
     function migrate(address _migrator, address _auditor) external onlyOwner() {
@@ -213,7 +265,11 @@ contract Datastore is Pausable {
     }
 
     function _hasContractRecord(string memory _contract) private view returns (bool) {
-        return contracts[_contract].auditor != address(0);
+        return contracts[_contract].data.auditor != address(0);
+    }
+
+    function _hasCreationRecord(string memory _contract) private view returns (bool) {
+        return creationHash[_contract].data.auditor != address(0);
     }
 
     function isAuditorRecursiveSearch(address _auditor) external view returns (bool) {
@@ -222,30 +278,59 @@ contract Datastore is Pausable {
         return _recursiveAuditorSearch(_auditor);
     }
 
-    function contractDetailsRecursiveSearch(string memory _contract) external view returns (address, bool) {
+    function contractDetailsRecursiveSearch(string memory _contract) external view returns (address, bool, bool, string memory) {
         // Check in all previous stores if this contract has been recorded
         // This is likely to be expensive so it is better to check each store manually / individually
-        return _recursiveContractDetailsSearch(_contract);
+        return _recursiveContractDetailsSearch(_contract, true);
     }
 
-    function _recursiveContractDetailsSearch(string memory _contract) private view returns (address, bool) {
+    function contractCreationDetailsRecursiveSearch(string memory _contract) external view returns (address, bool, bool, string memory) {
+        // Check in all previous stores if this contract has been recorded
+        // This is likely to be expensive so it is better to check each store manually / individually
+        return _recursiveContractDetailsSearch(_contract, false);
+    }
+
+    function _recursiveContractDetailsSearch(string memory _contract, bool _contractHash) private view returns (address, bool, bool, string memory) {
         address _auditor;
-        bool _approved;
+        bool    _approved;
+        bool    _destructed;
+        string  _hash;
 
-        if (_hasContractRecord(_contract)) {
-            _auditor = contracts[_contract].auditor;
-            _approved = contracts[_contract].approved;            
-        } else if (previousDatastore != address(0)) {
-            (bool success, bytes memory data) = previousDatastore.staticcall(abi.encodeWithSignature("contractDetailsRecursiveSearch(string)", _contract));
-
-            require(success, string(abi.encodePacked("Unknown error when recursing in datastore version: ", version)));
-            
-            (_auditor, _approved) = abi.decode(data, (address, bool));
+        if (_contractHash) {
+            if (_hasContractRecord(_contract)) {
+                _auditor    = contracts[_contract].data.auditor;
+                _approved   = contracts[_contract].data.approved;
+                _destructed = contracts[_contract].data.destructed;
+                _hash       = contracts[_contract].creationHash;
+            } else if (previousDatastore != address(0)) {
+                (_auditor, _approved, _destructed, _hash) = _contractLookup("contractDetailsRecursiveSearch");
+            } else {
+                revert("No contract record in any data store");
+            }
         } else {
-            revert("No contract record in any data store");
+            if (_hasCreationRecord(_contract)) {
+                _auditor    = creationHash[_contract].data.auditor;
+                _approved   = creationHash[_contract].data.approved;
+                _destructed = creationHash[_contract].data.destructed;
+                _hash       = creationHash[_contract].contractHash;
+            } else if (previousDatastore != address(0)) {
+                (_auditor, _approved, _destructed, _hash) = _contractLookup("contractCreationDetailsRecursiveSearch");
+            } else {
+                revert("No contract record in any data store");
+            }
         }
 
-        return (_auditor, _approved);
+        return (_auditor, _approved, _destructed, _hash);
+    }
+
+    function _contractLookup(string memory _function) private view returns returns (address, bool, bool, string memory) {
+        string memory _signature = string(abi.encodePacked(_function, "(string)")
+        (bool success, bytes memory data) = previousDatastore.staticcall(abi.encodeWithSignature(_signature, _contract));
+
+        require(success, string(abi.encodePacked("Unknown error when recursing in datastore version: ", version)));
+        
+        (_auditor, _approved, _destructed, _creationHash) = abi.decode(data, (address, bool, bool, string));
+        return (_auditor, _approved, _destructed, _creationHash);
     }
 
     function _recursiveAuditorSearch(address _auditor) private view returns (bool) {
@@ -270,6 +355,7 @@ contract Datastore is Pausable {
         return isAnAuditor;
     }
 
+    // TODO: take back ownership and then give it to the 0th address once you are changed to a newer version
     function linkDataStore(address _dataStore) external onlyOwner() {
         previousDatastore = _dataStore;
         emit LinkedDataStore(_msgSender(), previousDatastore);

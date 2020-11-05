@@ -329,6 +329,11 @@ contract Auditable is Ownable {
         require(_msgSender() == auditor || _msgSender() == _owner(), "Auditor and Owner only");
         require(audited, "Cannot nuke an unaudited contract");
         require(!approved, "Cannot nuke an approved contract");
+
+        (bool _success, ) = platform.call(abi.encodeWithSignature("nukedContract(address,address)", _msgSender(), address(this), abi.encodePacked(_hash)));
+
+        require(_success, "Unknown error, up the chain, when nuking the contract");
+
         selfdestruct(_owner());
     }
 }

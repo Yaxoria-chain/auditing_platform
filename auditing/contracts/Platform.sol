@@ -88,12 +88,13 @@ contract Platform is Pausable {
     /// @param _caller The contract that has called the completeAudit function in the platform
     /// @param _approved Bool indicating whether the auditor has approved or opposed the contract
     /// @param _hash The contract creation hash
-    function completeAudit(address _auditor, address _contract, bool _approved, bytes calldata _hash) external whenNotPaused() {
+    function completeAudit(address _auditor, address _contract, address _contractOwner, bool _approved, bytes calldata _hash) external whenNotPaused() {
         // Tell the data store that an audit has been completed
-        (bool _storeSuccess, ) = dataStore.call(abi.encodeWithSignature("completeAudit(address,bool,bytes)", _auditor, _approved, _hash));
+        (bool _storeSuccess, ) = dataStore.call(abi.encodeWithSignature("completeAudit(address,address,address,bool,bytes)", _auditor, _contract, _contractOwner, _approved, _hash));
 
         require(_storeSuccess, "Unknown error when adding audit record to the data store");
 
+        // TODO: add the owner into the nft mint
         // Mint a non-fungible token for the auditor as a receipt
         (bool _NFTSuccess, ) = NFT.call(abi.encodeWithSignature("mint(address,address,bool,bytes)", _auditor, _contract, _approved, _hash));
         
@@ -136,6 +137,11 @@ contract Platform is Pausable {
         require(_success, "Unknown error when migrating auditor");
         
         emit AuditorMigrated(_msgSender(), _auditor);
+    }
+
+    function nukedContract(address _sender, address _contract, string _creationHash) external {
+        // TODO: how do I make sure that the deployer is the one sending this message?
+        // create new variable in the store to contain who the deployers are?
     }
 
     /// @notice Allows the auditor to perform audits again
