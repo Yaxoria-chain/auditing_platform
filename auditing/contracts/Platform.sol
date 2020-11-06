@@ -88,9 +88,9 @@ contract Platform is Pausable {
     /// @param _caller The contract that has called the completeAudit function in the platform
     /// @param _approved Bool indicating whether the auditor has approved or opposed the contract
     /// @param _hash The contract creation hash
-    function completeAudit(address _auditor, address _contract, address _contractOwner, bool _approved, bytes calldata _hash) external whenNotPaused() {
+    function completeAudit(address _auditor, address _deployer, address _contract, bool _approved, bytes calldata _hash) external whenNotPaused() {
         // Tell the data store that an audit has been completed
-        (bool _storeSuccess, ) = dataStore.call(abi.encodeWithSignature("completeAudit(address,address,address,bool,bytes)", _auditor, _contract, _contractOwner, _approved, _hash));
+        (bool _storeSuccess, ) = dataStore.call(abi.encodeWithSignature("completeAudit(address,address,address,bool,bytes)", _auditor, _deployer, _contract, _approved, _hash));
 
         require(_storeSuccess, "Unknown error when adding audit record to the data store");
 
@@ -139,7 +139,7 @@ contract Platform is Pausable {
         emit AuditorMigrated(_msgSender(), _auditor);
     }
 
-    function nukedContract(address _sender, address _contract, string _creationHash) external {
+    function nukedContract(address _sender, address _deployer, address _contract, string calldata _creationHash) external {
         // TODO: how do I make sure that the deployer is the one sending this message?
         // create new variable in the store to contain who the deployers are?
     }

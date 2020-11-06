@@ -12,6 +12,8 @@ contract Auditable is Ownable {
     /// @notice the destination which the status of the audit is transmitted to
     address public platform;
 
+    address public immutable deployer;
+
     /// @notice Indicates whether the audit has been completed or is in progress
     /// @dev Audit is completed when the bool is set to true otherwise the default is false (in progress)
     bool public audited;
@@ -54,6 +56,7 @@ contract Auditable is Ownable {
     /// @param _platform an address of a contract which may or may not be a valid platform
     /// @dev Ownable() with our implementation to be cleaner and internal because it is not meant to be public, inherit the methods and variables
     constructor(address _auditor, address _platform) Ownable() internal {
+        deployer = _owner();
         _setAuditor(_auditor);
         _setPlatform(_platform);
     }
@@ -136,7 +139,7 @@ contract Auditable is Ownable {
 
         // TODO: think about the owner being sent and transfer of ownership and how that affects the store
         // Inform the platform      
-        (bool _success, ) = platform.call(abi.encodeWithSignature("completeAudit(address,address,address,bool,bytes)",  _msgSender(), address(this), _owner(), approved, abi.encodePacked(_hash)));
+        (bool _success, ) = platform.call(abi.encodeWithSignature("completeAudit(address,address,address,bool,bytes)", _msgSender(), deployer, address(this), approved, abi.encodePacked(_hash)));
 
         require(_success, "Unknown error, up the chain, when approving the audit");
 
@@ -163,7 +166,7 @@ contract Auditable is Ownable {
 
         // TODO: think about the owner being sent and transfer of ownership and how that affects the store
         // Inform the platform      
-        (bool _success, ) = platform.call(abi.encodeWithSignature("completeAudit(address,address,address,bool,bytes)", _msgSender(), address(this), _owner(), approved, abi.encodePacked(_hash)));
+        (bool _success, ) = platform.call(abi.encodeWithSignature("completeAudit(address,address,address,bool,bytes)", _msgSender(), deployer, address(this), approved, abi.encodePacked(_hash)));
 
         require(_success, "Unknown error, up the chain, when opposing the audit");
 
@@ -176,7 +179,7 @@ contract Auditable is Ownable {
         require(audited, "Cannot nuke an unaudited contract");
         require(!approved, "Cannot nuke an approved contract");
 
-        (bool _success, ) = platform.call(abi.encodeWithSignature("nukedContract(address,address,string)", _msgSender(), address(this), contractCreationHash);
+        (bool _success, ) = platform.call(abi.encodeWithSignature("nukedContract(address,address,string)", _msgSender(), deployer, address(this), contractCreationHash);
 
         require(_success, "Unknown error, up the chain, when nuking the contract");
 

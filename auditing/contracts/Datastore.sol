@@ -66,8 +66,6 @@ contract Datastore is Pausable {
     // Daisy chain stores
     event LinkedDataStore(address indexed _owner, address indexed _dataStore);
     
-    // TODO: add in deployer lookup calls
-
     constructor() Pausable() public {}
 
     function hasAuditorRecord(address _auditor) external view returns (bool) {
@@ -77,14 +75,6 @@ contract Datastore is Pausable {
     function isAuditor(address _auditor) external view returns (bool) {
         // Ambigious private call, call with caution or use with hasAuditorRecord()
         return _isAuditor(_auditor);
-    }
-
-    function hasContractRecord(string memory _contract) external view returns (bool) {
-        return _hasContractRecord(_contract);
-    }
-
-    function hasContractCreationRecord(string memory _contract) external view returns (bool) {
-        return _hasCreationRecord(_contract);
     }
 
     function auditorDetails(address _auditor) external view returns (bool, uint256, uint256) {
@@ -98,7 +88,7 @@ contract Datastore is Pausable {
         );
     }
 
-    function auditorApprovedContract(address _auditor, uint256 _index) external view returns (string memory) {
+    function auditorApprovedContract(address _auditor, uint256 _index) external view returns (address, address, address, bool, bool, string memory) {
         require(_hasAuditorRecord(_auditor), "No auditor record in the current store");
         require(0 < auditors[_auditor].approvedContracts.length, "Approved list is empty");
         require(_index <= auditors[_auditor].approvedContracts.length, "Record does not exist");
@@ -107,10 +97,12 @@ contract Datastore is Pausable {
             _index = _index.sub(1);
         }
 
-        return auditors[_auditor].approvedContracts[_index];
+        uint256 _contractIndex = auditors[_auditor].approvedContracts[_index];
+
+        return _contractDetails(_contractIndex);
     }
 
-    function auditorOpposedContract(address _auditor, uint256 _index) external view returns (string memory) {
+    function auditorOpposedContract(address _auditor, uint256 _index) external view returns (address, address, address, bool, bool, string memory) {
         require(_hasAuditorRecord(_auditor), "No auditor record in the current store");
         require(0 < auditors[_auditor].opposedContracts.length, "Opposed list is empty");
         require(_index <= auditors[_auditor].opposedContracts.length, "Record does not exist");
@@ -119,30 +111,46 @@ contract Datastore is Pausable {
             _index = _index.sub(1);
         }
 
-        return auditors[_auditor].opposedContracts[_index];
+        uint256 _contractIndex = auditors[_auditor].opposedContracts[_index];
+
+        return _contractDetails(_contractIndex);
     }
 
-    function contractDetails(string memory _contract) external view returns (address, bool, bool, string memory) {
-        require(_hasContractRecord(_contract), "No contract record in the current store");
-
-        return 
-        (
-            contracts[_contract].data.auditor, 
-            contracts[_contract].data.approved,
-            contracts[_contract].data.destructed,
-            contracts[_contract].creationHash
-        );
+    function hasContractRecord(address _contractHash) external view returns (bool) {
+        return _hasContractRecord(_contractHash);
     }
 
-    function contractCreationDetails(string memory _creationHash) external view returns (address, bool, bool, string memory) {
+    function hasContractCreationRecord(string memory _contract) external view returns (bool) {
+        return _hasCreationRecord(_contract);
+    }
+
+    function contractDetails(address _contractHash) external view returns (address, address, address, bool, bool, string memory) {
+        require(_hasContractRecord(_contractHash), "No contract record in the current store");
+
+        uint256 _contractIndex = contractHash[_contractHash];
+
+        return _contractDetails(_contractIndex);
+    }
+
+    function contractCreationDetails(address _creationHash) external view returns (address, address, address, bool, bool, string memory) {
         require(_hasCreationRecord(_creationHash), "No contract record in the current store");
 
+        uint256 _contractIndex = creationHash[_contractHash];
+
+        return _contractDetails(_contractIndex);
+    }
+
+    function hasDeployerRecord(address _deployer) external view returns (bool) {
+        return _hasDeployerRecord(_deployer);
+    }
+
+    function deployerDetails(address _deployer) external view returns (uint256, uint256) {
+        require(_hasDeployerRecord(_deployer), "No deployer record in the current store");
+
         return 
         (
-            creationHash[_creationHash].data.auditor, 
-            creationHash[_creationHash].data.approved,
-            creationHash[_creationHash].data.destructed,
-            creationHash[_creationHash].contractHash
+            deployers[_deployer].approvedContracts.length, 
+            deployers[_deployer].opposedContracts.length
         );
     }
 
@@ -268,12 +276,16 @@ contract Datastore is Pausable {
         return auditors[_auditor].isAuditor;
     }
 
-    function _hasContractRecord(string memory _contract) private view returns (bool) {
-        return contracts[_contract].data.auditor != address(0);
+    function _hasDeployerRecord(address _deployer) private view returns (bool) {
+        return deployers[_deployer].deployer != address(0);
     }
 
-    function _hasCreationRecord(string memory _contract) private view returns (bool) {
-        return creationHash[_contract].data.auditor != address(0);
+    function _hasContractRecord(address _contractHash) private view returns (bool) {
+        return contractHash[_contractHash] != 0;
+    }
+
+    function _hasCreationRecord(address _creationHash) private view returns (bool) {
+        return creationHash[_creationHash] != 0;
     }
 
     function isAuditorRecursiveSearch(address _auditor) external view returns (bool) {
@@ -357,6 +369,21 @@ contract Datastore is Pausable {
         }
 
         return isAnAuditor;
+    }
+
+    function _contractDetails(uint256 _index) private view returns (address, address, address, bool, bool, string memory) {
+        require(0 < contracts.length, "No contracts have been added");
+        require(_index <= contracts.length, "Record does not exist");
+
+        return 
+        (
+            contracts[_index].auditor,
+            contracts[_index].contractHash,
+            contracts[_index].deployer,
+            contracts[_index].approved,
+            contracts[_index].destructed,
+            contracts[_index].creationHash
+        );
     }
 
     // TODO: take back ownership and then give it to the 0th address once you are changed to a newer version
