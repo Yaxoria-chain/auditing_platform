@@ -22,39 +22,35 @@ contract Datastore is Pausable {
     uint256 public opposedContractCount;
 
     struct Auditor {
-        bool     isAuditor;
-        address  auditor;
-        string[] approvedContracts;
-        string[] opposedContracts;
+        address    auditor;
+        bool       isAuditor;
+        uint256[]  approvedContracts;
+        uint256[]  opposedContracts;
     }
 
-    // TODO: redesign the structs?
     struct Deployer {
-        ContractData data;
-        string contractHash;
-        string creationHash;
-    }
-
-    struct ContractData {
-        address auditor;
-        bool    approved;
-        bool    destructed;
+        address    deployer;
+        uint256[]  approvedContracts;
+        uint256[]  opposedContracts;
     }
 
     struct Contract {
-        ContractData data;
-        string creationHash;
+        address auditor;
+        address contractHash;
+        address deployer;
+        bool    approved;
+        bool    destructed;
+        string  creationHash;
     }
 
-    struct InverseContractLookup {
-        ContractData data;
-        string contractHash;
-    }
+    Contract[] public contracts;
 
     mapping(address => Auditor)  private auditors;
     mapping(address => Deployer) private deployers;
-    mapping(string => Contract)  private contracts;
-    mapping(string => InverseContractLookup) private creationHash;
+
+    // Note for later, 0th index is used to check if it already exists
+    mapping(address => uint256) public contractHash;
+    mapping(string => uint256)  public contractCreationHash;
 
     // State changes to auditors
     event AddedAuditor(     address indexed _owner, address indexed _auditor);
@@ -65,7 +61,7 @@ contract Datastore is Pausable {
     event AcceptedMigration(address indexed _migrator, address indexed _auditor);
 
     // Completed audits
-    event NewRecord(address indexed _auditor, address _contract, string _hash, bool indexed _approved);
+    event NewRecord(address indexed _auditor, address indexed _deployer, address _contract, string _hash, bool indexed _approved, uint256 _contractIndex);
 
     // Daisy chain stores
     event LinkedDataStore(address indexed _owner, address indexed _dataStore);
@@ -193,41 +189,49 @@ contract Datastore is Pausable {
         emit ReinstatedAuditor(_msgSender(), _auditor);
     }
 
-    function completeAudit(address _auditor, address _contract, bool _approved, bytes calldata _txHash) external onlyOwner() whenNotPaused() {
+    function completeAudit(address _auditor, address _deployer, address _contract, bool _approved, bytes calldata _txHash) external onlyOwner() whenNotPaused() {
         require(_hasAuditorRecord(_auditor), "No auditor record in the current store");
         require(_isAuditor(_auditor), "Auditor has been suspended");
 
-        // Using bytes, calldata and external is cheap however over time string conversions may add up
-        // so just store the string instead ("pay up front")
+        require(contractHash[_contract] != 0, "Contract exists in the contracts mapping");
+
         string memory _hash = string(_txHash);
 
-        // TODO: Better require messages
-        require(contracts[_contract].data.auditor == address(0), "Contract has already been audited");
-        require(creationHash[_hash].data.auditor == address(0), "Contract has already been audited");
+        require(contractCreationHash[_hash] != 0, "Contract exists in the contract creation hash mapping");
 
-        // TODO: handle both creation hash and contract hash
+        // TODO: can I omit the destructed argument since the default bool is false?
+        Contract _contractData = Contract({
+            auditor:        _auditor,
+            contractHash:   _contract,
+            deployer:       _deployer,
+            approved:       _approved, 
+            destructed:     false,
+            creationHash:   _hash
+        });
+
+        contracts[contracts.length++] = _contractData;
+        uint256 _contractIndex = contracts.length;
+
+        if (deployers[_deployer].deployer == address(0)) {
+            deployers[_deployer].deployer = _deployer;
+        }
+
         if (_approved) {
-            auditors[_auditor].approvedContracts.push(_hash);
+            auditors[_auditor].approvedContracts.push(_contractIndex);
+            deployers[_deployer].approvedContracts.push(_contractIndex);
+
             approvedContractCount = approvedContractCount.add(1);
         } else {
-            auditors[_auditor].opposedContracts.push(_hash);
+            auditors[_auditor].opposedContracts.push(_contractIndex);
+            deployers[_deployer].opposedContracts.push(_contractIndex);
+            
             opposedContractCount = opposedContractCount.add(1);
         }
 
-        // TODO: Add in the deployer info
+        contractHash[_contract] = _contractIndex;
+        contractCreationHash[_hash] = _contractIndex;
 
-        // TODO: can I omit the destructed argument since the default bool is false?
-        ContractData _commonData = ContractData({auditor: _auditor, approved: _approved, destructed: false});
-
-        // TODO: _contract here is address while mapping is string. Turn mapping to address type and then same for creationHash in the inverseLookup?
-        contracts[_contract].data = _commonData;
-        contracts[_contract].creationHash = _hash
-
-        // TODO: If I change one struct does it affect every reference or are they copied into the structs?
-        creationHash[_hash].data = _commonData;
-        creationHash[_hash].contractHash = _contract;
-
-        emit NewRecord(_auditor, _contract, _hash, _approved);
+        emit NewRecord(_auditor, _deployer, _contract, _hash, _approved, _contractIndex);
     }
 
     function migrate(address _migrator, address _auditor) external onlyOwner() {
