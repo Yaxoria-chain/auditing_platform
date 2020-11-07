@@ -47,8 +47,8 @@ contract Datastore is Pausable {
         string  creationHash;
     }
 
-    mapping(address => Auditor)  private auditors;
-    mapping(address => Deployer) private deployers;
+    mapping(address => Auditor)  public auditors;
+    mapping(address => Deployer) public deployers;
 
     // Note for later, 0th index is used to check if it already exists
     mapping(address => uint256) public contractHash;
@@ -65,7 +65,7 @@ contract Datastore is Pausable {
     // Completed audits
     event NewRecord(address indexed _auditor, address indexed _deployer, address _contract, string _hash, bool indexed _approved, uint256 _contractIndex);
 
-    event ContractNuked(address indexed _sender, address _contract);
+    event ContractDestructed(address indexed _sender, address _contract);
 
     // Daisy chain stores
     event LinkedDataStore(address indexed _owner, address indexed _dataStore);
@@ -278,16 +278,16 @@ contract Datastore is Pausable {
         }
     }
 
-    function nukeContract(address _sender, address _contractHash) external onlyOwner() {
-        require(_hasContractRecord(_contractHash), "No contract record in the current store");
+    function contractDestructed(address _contract, address _initiator) external onlyOwner() {
+        require(_hasContractRecord(_contract), "No contract record in the current store");
 
         uint256 _contractIndex = contractHash[_contractHash];
 
-        require(contracts[_contractIndex].auditor == _sender || contracts[_contractIndex].deployer == _sender, "Action restricted to contract Auditor or Deployer");
+        require(contracts[_contractIndex].auditor == _initiator || contracts[_contractIndex].deployer == _initiator, "Action restricted to contract Auditor or Deployer");
 
         contracts[_contractIndex].destructed = true;
 
-        emit ContractNuked(_sender, _contractHash);
+        emit ContractDestructed(_contract, _initiator);
     }
 
     function _hasAuditorRecord(address _auditor) private view returns (bool) {

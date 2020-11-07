@@ -175,12 +175,14 @@ contract Platform is Pausable {
         emit AuditorMigrated(_msgSender(), _auditor);
     }
 
-    function nukeContract(address _sender, address _contract) external {
-        // TODO: restrict to auditor and deployer only by removing _sender and using _msgSender()
+    function contractDestructed(address _sender) external {
+        // Design flaw: this does not ensure that the contract will be destroyed as a contract may have a function that
+        // allows it to call this and falsely set the bool from false to true
+        // TODO: Better to make the auditor be the _msgSender() and pass in the contract as a default argument
 
-        (bool _success, ) = dataStore.call(abi.encodeWithSignature("nukeContract(address,address)", _sender, _contract));
+        (bool _success, ) = dataStore.call(abi.encodeWithSignature("contractDestructed(address,address)", _msgSender(), _sender));
 
-        require(_success, "Unknown error when recording a nuked contract in the data store");
+        require(_success, "Unknown error when recording a destructed contract in the data store");
     }
 
     /**
@@ -188,7 +190,6 @@ contract Platform is Pausable {
         @param _auditor The auditor who is reinstated
     */
     function reinstateAuditor(address _auditor) external onlyOwner() whenNotPaused() {
-        // Tell the data store to switch the value which indicates whether someone is an auditor back to true
         (bool _success, ) = dataStore.call(abi.encodeWithSignature("reinstateAuditor(address)", _auditor));
 
         require(_success, "Unknown error when reinstating auditor in the data store");

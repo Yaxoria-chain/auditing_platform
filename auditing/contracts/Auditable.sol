@@ -191,10 +191,13 @@ contract Auditable is Ownable {
         @dev The auditor and owner may conspire to use a different hash therefore the platform would yeet them after the fact - if they find out
     */
     function opposeAudit(string memory _hash) external {
-        // Only the auditor should be able to approve
-        require(_msgSender() == auditor, "Auditor only");
+        address _initiator = _msgSender();
+        require(_initiator == auditor, "Auditor only");
 
         // Make sure that the hash has been set and that they match
+        // Design Flaw: Auditor and Deployer may colllude and use a different hash - cannot fix with code..?
+        // TODO: Can we somehow query the blockchain with address(this) and find the hash? It's an event so probably not
+        //       unless we have a client do it and call back into the contract
         require(bytes(contractCreationHash).length != 0, "Hash has not been set");
         require(keccak256(abi.encodePacked(_hash)) == keccak256(abi.encodePacked(contractCreationHash)), "Hashes do not match");
         
@@ -207,26 +210,29 @@ contract Auditable is Ownable {
 
         // TODO: think about the owner being sent and transfer of ownership and how that affects the store
         // Inform the platform      
-        (bool _success, ) = platform.call(abi.encodeWithSignature("completeAudit(address,address,address,bool,bytes)", _msgSender(), deployer, address(this), approved, abi.encodePacked(_hash)));
+        (bool _success, ) = platform.call(abi.encodeWithSignature("completeAudit(address,address,address,bool,bytes)", _initiator, deployer, address(this), approved, abi.encodePacked(_hash)));
 
         require(_success, "Unknown error, up the chain, when opposing the audit");
 
-        emit OpposedAudit(_msgSender());
+        emit OpposedAudit(_initiator);
     }
 
     /**
         @notice Allows the auditor or the owner to clean up after themselves and return a portion of the deployment funds if the contract is opposed
     */
-    function nuke() external {
-        // TODO: Should this be the deployer instead of the owner?
-        require(_msgSender() == auditor || _msgSender() == _owner(), "Auditor and Owner only");
-        require(audited, "Cannot nuke an unaudited contract");
-        require(!approved, "Cannot nuke an approved contract");
+    function destruct() external {
+        // TODO: change deployer to owner?
+        
+        address _initiator = _msgSender();
 
-        (bool _success, ) = platform.call(abi.encodeWithSignature("nukeContract(address,address,string)", _msgSender(), deployer, address(this), contractCreationHash);
+        require(_initiator == auditor || _initiator == deployer, "Auditor and Deployer only");
+        require(audited, "Cannot destruct an unaudited contract");
+        require(!approved, "Cannot destruct an approved contract");
 
-        require(_success, "Unknown error, up the chain, when nuking the contract");
+        (bool _success, ) = platform.call(abi.encodeWithSignature("contractDestructed(address)", _initiator));
 
-        selfdestruct(_owner());
+        require(_success, "Unknown error, up the chain, when destructing the contract");
+
+        selfdestruct(deployer);
     }
 }
