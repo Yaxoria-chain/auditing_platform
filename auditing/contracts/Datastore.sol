@@ -21,6 +21,10 @@ contract Datastore is Pausable {
     uint256 public approvedContractCount;
     uint256 public opposedContractCount;
 
+    bool public activeStore = true;
+
+    Contract[] public contracts;
+
     struct Auditor {
         address    auditor;
         bool       isAuditor;
@@ -43,8 +47,6 @@ contract Datastore is Pausable {
         string  creationHash;
     }
 
-    Contract[] public contracts;
-
     mapping(address => Auditor)  private auditors;
     mapping(address => Deployer) private deployers;
 
@@ -62,6 +64,8 @@ contract Datastore is Pausable {
 
     // Completed audits
     event NewRecord(address indexed _auditor, address indexed _deployer, address _contract, string _hash, bool indexed _approved, uint256 _contractIndex);
+
+    event ContractNuked(address indexed _sender, address _contract);
 
     // Daisy chain stores
     event LinkedDataStore(address indexed _owner, address indexed _dataStore);
@@ -155,6 +159,8 @@ contract Datastore is Pausable {
     }
 
     function addAuditor(address _auditor) external onlyOwner() whenNotPaused() {
+        require(activeStore, "Store has been deactivated");
+
         // We are adding the auditor for the first time into this data store
         require(!_hasAuditorRecord(_auditor), "Auditor record already exists");
 
@@ -167,6 +173,8 @@ contract Datastore is Pausable {
     }
 
     function suspendAuditor(address _auditor) external onlyOwner() {
+        require(activeStore, "Store has been deactivated");
+
         // Do not change previous stores. Setting to false in the current store should prevent actions
         // from future stores when recursively searching
 
@@ -186,6 +194,8 @@ contract Datastore is Pausable {
     }
 
     function reinstateAuditor(address _auditor) external onlyOwner() whenNotPaused() {
+        require(activeStore, "Store has been deactivated");
+
         require(_hasAuditorRecord(_auditor), "No auditor record in the current store");
         require(!_isAuditor(_auditor), "Auditor already has active status");
 
@@ -198,6 +208,8 @@ contract Datastore is Pausable {
     }
 
     function completeAudit(address _auditor, address _deployer, address _contract, bool _approved, bytes calldata _txHash) external onlyOwner() whenNotPaused() {
+        require(activeStore, "Store has been deactivated");
+
         require(_hasAuditorRecord(_auditor), "No auditor record in the current store");
         require(_isAuditor(_auditor), "Auditor has been suspended");
 
@@ -264,6 +276,18 @@ contract Datastore is Pausable {
         } else {
             revert("Auditor is either suspended or has never been in the system");
         }
+    }
+
+    function nukeContract(address _sender, address _contractHash) external onlyOwner() {
+        require(_hasContractRecord(_contractHash), "No contract record in the current store");
+
+        uint256 _contractIndex = contractHash[_contractHash];
+
+        require(contracts[_contractIndex].auditor == _sender || contracts[_contractIndex].deployer == _sender, "Action restricted to contract Auditor or Deployer");
+
+        contracts[_contractIndex].destructed = true;
+
+        emit ContractNuked(_sender, _contractHash);
     }
 
     function _hasAuditorRecord(address _auditor) private view returns (bool) {
@@ -386,9 +410,12 @@ contract Datastore is Pausable {
         );
     }
 
-    // TODO: take back ownership and then give it to the 0th address once you are changed to a newer version
     function linkDataStore(address _dataStore) external onlyOwner() {
+        require(activeStore, "Store has been deactivated");
+        
+        activeStore = false;
         previousDatastore = _dataStore;
+
         emit LinkedDataStore(_msgSender(), previousDatastore);
     }
 }
