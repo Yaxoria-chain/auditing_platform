@@ -9,7 +9,7 @@ contract AuditorStore {
     using SafeMath for uint256;
 
     uint256 public activeDeployerCount;
-    uint256 public opposedContractCount;
+    uint256 public blacklistedDeployerCount;
 
     struct Deployer {
         address    deployer;

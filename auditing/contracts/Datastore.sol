@@ -14,14 +14,7 @@ contract Datastore is Pausable {
 
     string constant public version = "Demo: 1";
     
-    // Stats for auditors and contracts
-    uint256 public activeAuditorCount;
-    uint256 public suspendedAuditorCount;
-
     bool public activeStore = true;
-
-    // Auditor migration
-    event AcceptedMigration(address indexed _migrator, address indexed _auditor);
 
     // Completed audits
     event NewRecord(address indexed _auditor, address indexed _deployer, address _contract, string _hash, bool indexed _approved, uint256 _contractIndex);
@@ -50,6 +43,12 @@ contract Datastore is Pausable {
     function isAuditor(address _auditor) external view returns (bool) {
         // Ambigious private call, call with caution or use with hasAuditorRecord()
         return _isAuditor(_auditor);
+    }
+
+    function searchAllStoresForIsAuditor(address _auditor) external view returns (bool) {
+        // Check in all previous stores if the latest record of them being an auditor is set to true/false
+        // This is likely to be expensive so it is better to check each store manually / individually
+        return _recursiveIsAuditorSearch(_auditor, previousDatastore);
     }
 
     /**
@@ -175,6 +174,10 @@ contract Datastore is Pausable {
         _reinstateAuditor(_auditor);
     }
 
+    function migrateAuditor(address _migrator, address _auditor) external onlyOwner() {
+        _migrate(_migrator, _auditor);
+    }
+
     /**
         @notice Write a new completed audit into the data store
         @param _auditor The address, intented to be a wallet, which represents an auditor
@@ -198,36 +201,6 @@ contract Datastore is Pausable {
         _saveContractIndexForDeplyer(_approved, _contractIndex);
 
         emit NewRecord(_auditor, _deployer, _contract, _hash, _approved, _contractIndex);
-    }
-
-    function migrate(address _migrator, address _auditor) external onlyOwner() {
-        // Auditor should not exist to mitigate event spamming or possible neglectful changes to 
-        // _recursiveAuditorSearch(address) which may allow them to switch their suspended status to active
-        require(!_hasAuditorRecord(_auditor), "Already in data store");
-        
-        // Call the private method to begin the search
-        // Also, do not shadow the function name
-        bool isAnAuditor = _recursiveAuditorSearch(_auditor);
-
-        // The latest found record indicates that the auditor is active / not been suspended
-        if (isAnAuditor) {
-            // We can migrate them to the current store
-            // Do not rewrite previous audits into each new datastore as that will eventually become too expensive
-            auditors[_auditor].isAuditor = true;
-            auditors[_auditor].auditor = _auditor;
-
-            activeAuditorCount = activeAuditorCount.add(1);
-
-            emit AcceptedMigration(_migrator, _auditor);
-        } else {
-            revert("Auditor is either suspended or has never been in the system");
-        }
-    }
-
-    function isAuditorRecursiveSearch(address _auditor) external view returns (bool) {
-        // Check in all previous stores if the latest record of them being an auditor is set to true/false
-        // This is likely to be expensive so it is better to check each store manually / individually
-        return _recursiveAuditorSearch(_auditor);
     }
 
     function linkDataStore(address _dataStore) external onlyOwner() {

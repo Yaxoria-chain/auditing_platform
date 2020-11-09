@@ -8,8 +8,8 @@ contract AuditorStore {
     
     using SafeMath for uint256;
 
-    uint256 public approvedContractCount;
-    uint256 public opposedContractCount;
+    uint256 public activeAuditorCount;
+    uint256 public suspendedAuditorCount;
 
     struct Auditor {
         address    auditor;
@@ -24,6 +24,9 @@ contract AuditorStore {
     event AddedAuditor(     address indexed _owner, address indexed _auditor);
     event SuspendedAuditor( address indexed _owner, address indexed _auditor);
     event ReinstatedAuditor(address indexed _owner, address indexed _auditor);
+
+    // Auditor migration
+    event AcceptedMigration(address indexed _migrator, address indexed _auditor);
 
     constructor() internal {}
 
@@ -110,7 +113,7 @@ contract AuditorStore {
         return auditors[_auditor].approvedContracts[_index];
     }
 
-    function _auditorOpposedContract(address _auditor, uint256 _index) external view returns (uint256) {
+    function _auditorOpposedContract(address _auditor, uint256 _index) internal view returns (uint256) {
         require(_hasAuditorRecord(_auditor), "No auditor record in the current store");
         require(0 < auditors[_auditor].opposedContracts.length, "Opposed list is empty");
         require(_index <= auditors[_auditor].opposedContracts.length, "Record does not exist");
@@ -123,6 +126,30 @@ contract AuditorStore {
         return auditors[_auditor].opposedContracts[_index];
     }
 
+    function _migrate(address _migrator, address _auditor) internal onlyOwner() {
+        // Auditor should not exist to mitigate event spamming or possible neglectful changes to 
+        // _recursiveAuditorSearch(address) which may allow them to switch their suspended status to active
+        require(!_hasAuditorRecord(_auditor), "Already in data store");
+        
+        // Call the private method to begin the search
+        // Also, do not shadow the function name
+        bool isAnAuditor = _recursiveAuditorSearch(_auditor);
+
+        // The latest found record indicates that the auditor is active / not been suspended
+        if (isAnAuditor) {
+            // We can migrate them to the current store
+            // Do not rewrite previous audits into each new datastore as that will eventually become too expensive
+            auditors[_auditor].isAuditor = true;
+            auditors[_auditor].auditor = _auditor;
+
+            activeAuditorCount = activeAuditorCount.add(1);
+
+            emit AcceptedMigration(_migrator, _auditor);
+        } else {
+            revert("Auditor is either suspended or has never been in the system");
+        }
+    }
+
     function _saveContractIndexForAuditor(bool _approved, uint256 _index) internal {
         if (_approved) {
             auditors[_auditor].approvedContracts.push(_index);
@@ -131,7 +158,7 @@ contract AuditorStore {
         }
     }
 
-    function _recursiveAuditorSearch(address _auditor) private view returns (bool) {
+    function _recursiveAuditorSearch(address _auditor, address _previousDatastore) private view returns (bool) {
         // Technically not needed as default is set to false but lets be explicit
         // Also, do not shadow the function name
         bool isAnAuditor = false;
@@ -140,10 +167,10 @@ contract AuditorStore {
             if (_isAuditor(_auditor)) {
                 isAnAuditor = true;
             }
-        } else if (previousDatastore != address(0)) {
-            (bool success, bytes memory data) = previousDatastore.staticcall(abi.encodeWithSignature("isAuditorRecursiveSearch(address)", _auditor));
+        } else if (_previousDatastore != address(0)) {
+            (bool success, bytes memory data) = _previousDatastore.staticcall(abi.encodeWithSignature("searchAllStoresForIsAuditor(address)", _auditor));
             
-            require(success, string(abi.encodePacked("Unknown error when recursing in datastore version: ", version)));
+            require(success, "Unknown error when recursing in datastore");
 
             isAnAuditor = abi.decode(data, (bool));
         } else {

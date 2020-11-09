@@ -163,12 +163,12 @@ contract Platform is Pausable {
         @notice Adds a record of a previously valid audit to the newer datastore
         @param _auditor The auditor who is migrated
     */
-    function migrate(address _auditor) external {
+    function migrateAuditor(address _auditor) external {
         // In the next iteration role based permissions will be implemented
         require(_msgSender() == _auditor, "Cannot migrate someone else");
 
         // Tell the data store to migrate the auditor
-        (bool _success, ) = dataStore.call(abi.encodeWithSignature("migrate(address,address)", _msgSender(), _auditor));
+        (bool _success, ) = dataStore.call(abi.encodeWithSignature("migrateAuditor(address,address)", _msgSender(), _auditor));
 
         require(_success, "Unknown error when migrating auditor");
         
