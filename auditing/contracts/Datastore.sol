@@ -18,54 +18,13 @@ contract Datastore is Pausable {
     uint256 public activeAuditorCount;
     uint256 public suspendedAuditorCount;
 
-    uint256 public approvedContractCount;
-    uint256 public opposedContractCount;
-
     bool public activeStore = true;
-
-    Contract[] public contracts;
-
-    struct Auditor {
-        address    auditor;
-        bool       isAuditor;
-        uint256[]  approvedContracts;
-        uint256[]  opposedContracts;
-    }
-
-    struct Deployer {
-        address    deployer;
-        uint256[]  approvedContracts;
-        uint256[]  opposedContracts;
-    }
-
-    struct Contract {
-        address auditor;
-        address contractHash;
-        address deployer;
-        bool    approved;
-        bool    destructed;
-        string  creationHash;
-    }
-
-    mapping(address => Auditor)  public auditors;
-    mapping(address => Deployer) public deployers;
-
-    // Note for later, 0th index is used to check if it already exists
-    mapping(address => uint256) public contractHash;
-    mapping(string => uint256)  public contractCreationHash;
-
-    // State changes to auditors
-    event AddedAuditor(     address indexed _owner, address indexed _auditor);
-    event SuspendedAuditor( address indexed _owner, address indexed _auditor);
-    event ReinstatedAuditor(address indexed _owner, address indexed _auditor);
 
     // Auditor migration
     event AcceptedMigration(address indexed _migrator, address indexed _auditor);
 
     // Completed audits
     event NewRecord(address indexed _auditor, address indexed _deployer, address _contract, string _hash, bool indexed _approved, uint256 _contractIndex);
-
-    event ContractDestructed(address indexed _sender, address _contract);
 
     // Daisy chain stores
     event LinkedDataStore(address indexed _owner, address indexed _dataStore);
@@ -100,14 +59,7 @@ contract Datastore is Pausable {
         @return The current state of the auditor and the total number of approved contracts and the total number of opposed contracts
     */
     function auditorDetails(address _auditor) external view returns (bool, uint256, uint256) {
-        require(_hasAuditorRecord(_auditor), "No auditor record in the current store");
-
-        return 
-        (
-            auditors[_auditor].isAuditor, 
-            auditors[_auditor].approvedContracts.length, 
-            auditors[_auditor].opposedContracts.length
-        );
+        return _auditorDetails(_auditor);
     }
 
     /**
@@ -117,17 +69,7 @@ contract Datastore is Pausable {
         @return The audited contract information
     */
     function auditorApprovedContract(address _auditor, uint256 _index) external view returns (address, address, address, bool, bool, string memory) {
-        require(_hasAuditorRecord(_auditor), "No auditor record in the current store");
-        require(0 < auditors[_auditor].approvedContracts.length, "Approved list is empty");
-        require(_index <= auditors[_auditor].approvedContracts.length, "Record does not exist");
-
-        // Indexing from the number 0 therefore decrement if you must
-        if (_index != 0) {
-            _index = _index.sub(1);
-        }
-
-        uint256 _contractIndex = auditors[_auditor].approvedContracts[_index];
-
+        uint256 _contractIndex = _auditorApprovedContract(_auditor, _index);
         return _contractDetails(_contractIndex);
     }
 
@@ -138,17 +80,7 @@ contract Datastore is Pausable {
         @return The audited contract information
     */
     function auditorOpposedContract(address _auditor, uint256 _index) external view returns (address, address, address, bool, bool, string memory) {
-        require(_hasAuditorRecord(_auditor), "No auditor record in the current store");
-        require(0 < auditors[_auditor].opposedContracts.length, "Opposed list is empty");
-        require(_index <= auditors[_auditor].opposedContracts.length, "Record does not exist");
-
-        // Indexing from the number 0 therefore decrement if you must
-        if (_index != 0) {
-            _index = _index.sub(1);
-        }
-
-        uint256 _contractIndex = auditors[_auditor].opposedContracts[_index];
-
+        uint256 _contractIndex = _auditorOpposedContract(_auditor, _index);
         return _contractDetails(_contractIndex);
     }
 
@@ -207,14 +139,8 @@ contract Datastore is Pausable {
         @dev Looping is a future problem therefore tell them the length and they can use the index to fetch the contract
         @return The number of approved contracts and the total number of opposed contracts
     */
-    function deployerDetails(address _deployer) external view returns (uint256, uint256) {
-        require(_hasDeployerRecord(_deployer), "No deployer record in the current store");
-
-        return 
-        (
-            deployers[_deployer].approvedContracts.length, 
-            deployers[_deployer].opposedContracts.length
-        );
+    function deployerDetails(address _deployer) external view returns (bool, uint256, uint256) {
+        _deployerDetails(address _deployer);
     }
 
     /**
@@ -224,16 +150,7 @@ contract Datastore is Pausable {
     */
     function addAuditor(address _auditor) external onlyOwner() whenNotPaused() {
         require(activeStore, "Store has been deactivated");
-        require(!_hasAuditorRecord(_auditor), "Auditor record already exists");
-
-        auditors[_auditor].isAuditor = true;
-        auditors[_auditor].auditor = _auditor;
-        
-        // Nice-to-have statistics
-        activeAuditorCount = activeAuditorCount.add(1);
-
-        // Which platform initiated the call on the _auditor
-        emit AddedAuditor(_msgSender(), _auditor);
+        _addAuditor(_auditor);
     }
 
     /**
@@ -245,26 +162,7 @@ contract Datastore is Pausable {
     */
     function suspendAuditor(address _auditor) external onlyOwner() {
         require(activeStore, "Store has been deactivated");
-
-        if (_hasAuditorRecord(_auditor)) {
-            if (!_isAuditor(_auditor)) {
-                revert("Auditor has already been suspended");
-            }
-            // Nice-to-have statistics
-            activeAuditorCount = activeAuditorCount.sub(1);
-        } else {
-            // If the previous store has been disabled when they were an auditor then write them into the (new) current store and disable
-            // their permissions for writing into this store and onwards. They should not be able to write back into the previous store anyway
-            auditors[_auditor].auditor = _auditor;
-        }
-
-        auditors[_auditor].isAuditor = false;
-        
-        // Nice-to-have statistics
-        suspendedAuditorCount = suspendedAuditorCount.add(1);
-
-        // Which platform initiated the call on the _auditor
-        emit SuspendedAuditor(_msgSender(), _auditor);
+        _suspendAuditor(_auditor);
     }
 
     /**
@@ -274,18 +172,7 @@ contract Datastore is Pausable {
     */
     function reinstateAuditor(address _auditor) external onlyOwner() whenNotPaused() {
         require(activeStore, "Store has been deactivated");
-
-        require(_hasAuditorRecord(_auditor), "No auditor record in the current store");
-        require(!_isAuditor(_auditor), "Auditor already has active status");
-
-        auditors[_auditor].isAuditor = true;
-        
-        // Nice-to-have statistics
-        activeAuditorCount = activeAuditorCount.add(1);
-        suspendedAuditorCount = suspendedAuditorCount.sub(1);
-
-        // Which platform initiated the call on the _auditor
-        emit ReinstatedAuditor(_msgSender(), _auditor);
+        _reinstateAuditor(_auditor);
     }
 
     /**
@@ -303,54 +190,12 @@ contract Datastore is Pausable {
         require(_hasAuditorRecord(_auditor), "No auditor record in the current store");
         require(_isAuditor(_auditor), "Auditor has been suspended");
 
-        // The contract should only be added once therefore if the index is 0 then it has not been added as the value lookup defaults to 0
-        require(contractHash[_contract] == 0, "Contract exists in the contracts mapping");
+        uint256 _contractIndex = _saveContract(_auditor, _contract, _deployer, _approved, string(_txHash));
 
-        string memory _hash = string(_txHash);
+        _addDeployer(_deployer);
 
-        // Similar to the check above but for the transaction hash. Check both to prevent unintended consequences (if deployer and auditor collude
-        // then this creation hash may be anything)
-        require(contractCreationHash[_hash] == 0, "Contract exists in the contract creation hash mapping");
-
-        // Create a single struct for the contract data and then reference it via indexing instead of changing multiple locations
-        // TODO: can I omit the destructed argument since the default bool is false?
-        Contract _contractData = Contract({
-            auditor:        _auditor,
-            contractHash:   _contract,
-            deployer:       _deployer,
-            approved:       _approved, 
-            destructed:     false,
-            creationHash:   _hash
-        });
-
-        // Start adding from the next position and thus have an empty 0th default value which indicates an error to the user
-        contracts[contracts.length++] = _contractData;
-        uint256 _contractIndex = contracts.length;
-
-        // If this is a new deployer address then write them into the store
-        if (!_hasDeployerRecord(_deployer)) {
-            deployers[_deployer].deployer = _deployer;
-        }
-
-        if (_approved) {
-            // Add the index of the contract, indicating the current position of this audit, to the arrays
-            auditors[_auditor].approvedContracts.push(_contractIndex);
-            deployers[_deployer].approvedContracts.push(_contractIndex);
-
-            // Nice-to-have statistics
-            approvedContractCount = approvedContractCount.add(1);
-        } else {
-            // Add the index of the contract, indicating the current position of this audit, to the arrays
-            auditors[_auditor].opposedContracts.push(_contractIndex);
-            deployers[_deployer].opposedContracts.push(_contractIndex);
-            
-            // Nice-to-have statistics
-            opposedContractCount = opposedContractCount.add(1);
-        }
-
-        // Add to mapping for easy lookup, note that 0th index will also be default which allows us to do some safety checks
-        contractHash[_contract] = _contractIndex;
-        contractCreationHash[_hash] = _contractIndex;
+        _saveContractIndexForAuditor(_approved, _contractIndex);
+        _saveContractIndexForDeplyer(_approved, _contractIndex);
 
         emit NewRecord(_auditor, _deployer, _contract, _hash, _approved, _contractIndex);
     }
@@ -379,46 +224,10 @@ contract Datastore is Pausable {
         }
     }
 
-    function _hasAuditorRecord(address _auditor) private view returns (bool) {
-        return auditors[_auditor].auditor != address(0);
-    }
-
-    function _isAuditor(address _auditor) private view returns (bool) {
-        // This will return false in both cases where an auditor has not been added into this datastore
-        // or if they have been added but suspended
-        return auditors[_auditor].isAuditor;
-    }
-
-    function _hasDeployerRecord(address _deployer) private view returns (bool) {
-        return deployers[_deployer].deployer != address(0);
-    }
-
     function isAuditorRecursiveSearch(address _auditor) external view returns (bool) {
         // Check in all previous stores if the latest record of them being an auditor is set to true/false
         // This is likely to be expensive so it is better to check each store manually / individually
         return _recursiveAuditorSearch(_auditor);
-    }
-
-    function _recursiveAuditorSearch(address _auditor) private view returns (bool) {
-        // Technically not needed as default is set to false but lets be explicit
-        // Also, do not shadow the function name
-        bool isAnAuditor = false;
-
-        if (_hasAuditorRecord(_auditor)) {
-            if (_isAuditor(_auditor)) {
-                isAnAuditor = true;
-            }
-        } else if (previousDatastore != address(0)) {
-            (bool success, bytes memory data) = previousDatastore.staticcall(abi.encodeWithSignature("isAuditorRecursiveSearch(address)", _auditor));
-            
-            require(success, string(abi.encodePacked("Unknown error when recursing in datastore version: ", version)));
-
-            isAnAuditor = abi.decode(data, (bool));
-        } else {
-            revert("No auditor record in any data store");
-        }
-
-        return isAnAuditor;
     }
 
     function linkDataStore(address _dataStore) external onlyOwner() {
