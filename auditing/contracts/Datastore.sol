@@ -169,33 +169,27 @@ contract Datastore is Pausable {
         @return Boolean value indicating if this address has been addede to the store
     */
     function hasContractCreationRecord(string memory _creationHash) external view returns (bool) {
+        // TODO: can the parameter be an address type? Mapping is currently string
         return _hasCreationRecord(_creationHash);
     }
 
     /**
-        @notice Check the contract details using the _contractHash
-        @param _contractHash The hash used to search for the contract
+        @notice Check the contract details using the _contract address
+        @param _contract Either the hash used to search for the contract or the transaction hash indicating the creation of the contract
         @return The data stored regarding the contract audit
     */
-    function contractDetails(address _contractHash) external view returns (address, address, address, bool, bool, string memory) {
-        require(_hasContractRecord(_contractHash), "No contract record in the current store");
-
-        uint256 _contractIndex = contractHash[_contractHash];
-
-        return _contractDetails(_contractIndex);
+    function contractDetails(address _contract) external view returns (address, address, address, bool, bool, string memory) {
+        return _contractDetails(_contract);
     }
 
-    /**
-        @notice Check the contract details using the _creationHash
-        @param _creationHash The hash depicting the transaction which created the contract
-        @return The data stored regarding the contract audit
-    */
-    function contractCreationDetails(address _creationHash) external view returns (address, address, address, bool, bool, string memory) {
-        require(_hasCreationRecord(_creationHash), "No contract record in the current store");
+    function searchAllStoresForContractDetails(address _contract) external view returns (address, address, address, bool, bool, string memory) {
+        // Check in all previous stores if this contract has been recorded
+        // This is likely to be expensive so it is better to check each store manually / individually
+        return _contractDetailsRecursiveSearch(_contract, previousDatastore);
+    }
 
-        uint256 _contractIndex = contractCreationHash[_contractHash];
-
-        return _contractDetails(_contractIndex);
+    function contractDestructed(address _contract, address _initiator) external onlyOwner() {
+        _contractDestructed(_contract, _initiator);
     }
 
     /**
@@ -385,19 +379,6 @@ contract Datastore is Pausable {
         }
     }
 
-    function contractDestructed(address _contract, address _initiator) external onlyOwner() {
-        require(_hasContractRecord(_contract), "No contract record in the current store");
-
-        uint256 _contractIndex = contractHash[_contractHash];
-
-        require(contracts[_contractIndex].auditor == _initiator || contracts[_contractIndex].deployer == _initiator, "Action restricted to contract Auditor or Deployer");
-        require(!contracts[_contractIndex].destructed, "Contract already marked as destructed");
-
-        contracts[_contractIndex].destructed = true;
-
-        emit ContractDestructed(_contract, _initiator);
-    }
-
     function _hasAuditorRecord(address _auditor) private view returns (bool) {
         return auditors[_auditor].auditor != address(0);
     }
@@ -412,83 +393,10 @@ contract Datastore is Pausable {
         return deployers[_deployer].deployer != address(0);
     }
 
-    function _hasContractRecord(address _contractHash) private view returns (bool) {
-        return contractHash[_contractHash] != 0;
-    }
-
-    function _hasCreationRecord(address _creationHash) private view returns (bool) {
-        return contractCreationHash[_creationHash] != 0;
-    }
-
     function isAuditorRecursiveSearch(address _auditor) external view returns (bool) {
         // Check in all previous stores if the latest record of them being an auditor is set to true/false
         // This is likely to be expensive so it is better to check each store manually / individually
         return _recursiveAuditorSearch(_auditor);
-    }
-
-    function contractDetailsRecursiveSearch(string memory _contract) external view returns (address, address, address, bool, bool, string memory) {
-        // Check in all previous stores if this contract has been recorded
-        // This is likely to be expensive so it is better to check each store manually / individually
-        return _recursiveContractDetailsSearch(_contract, true);
-    }
-
-    function contractCreationDetailsRecursiveSearch(string memory _contract) external view returns (address, address, address, bool, bool, string memory) {
-        // Check in all previous stores if this contract has been recorded
-        // This is likely to be expensive so it is better to check each store manually / individually
-        return _recursiveContractDetailsSearch(_contract, false);
-    }
-
-    function _recursiveContractDetailsSearch(string memory _contract, bool _contractHash) private view returns (address, address, address, bool, bool, string memory) {
-        address _auditor;
-        address _contractHash;
-        address _deployer;
-        bool    _approved;
-        bool    _destructed;
-        string  _creationHash;
-
-        if (_contractHash) {
-            if (_hasContractRecord(_contract)) {
-                uint256 _contractIndex = contractHash[_contract];
-
-                _auditor      = contracts[_contractIndex].auditor;
-                _contractHash = contracts[_contractIndex].contractHash;
-                _deployer     = contracts[_contractIndex].deployer;
-                _approved     = contracts[_contractIndex].approved;
-                _destructed   = contracts[_contractIndex].destructed;
-                _hash         = contracts[_contractIndex].creationHash;
-            } else if (previousDatastore != address(0)) {
-                (_auditor, _contractHash, _deployer, _approved, _destructed, _hash) = _contractLookup("contractDetailsRecursiveSearch");
-            } else {
-                revert("No contract record in any data store");
-            }
-        } else {
-            if (_hasCreationRecord(_contract)) {
-                uint256 _contractIndex = contractCreationHash[_contract];
-
-                _auditor      = contracts[_contractIndex].auditor;
-                _contractHash = contracts[_contractIndex].contractHash;
-                _deployer     = contracts[_contractIndex].deployer;
-                _approved     = contracts[_contractIndex].approved;
-                _destructed   = contracts[_contractIndex].destructed;
-                _hash         = contracts[_contractIndex].creationHash;
-            } else if (previousDatastore != address(0)) {
-                (_auditor, _contractHash, _deployer, _approved, _destructed, _hash) = _contractLookup("contractCreationDetailsRecursiveSearch");
-            } else {
-                revert("No contract record in any data store");
-            }
-        }
-
-        return (_auditor, _contractHash, _deployer, _approved, _destructed, _hash);
-    }
-
-    function _contractLookup(string memory _function) private view returns returns (address, address, address, bool, bool, string memory) {
-        string memory _signature = string(abi.encodePacked(_function, "(string)")
-        (bool success, bytes memory data) = previousDatastore.staticcall(abi.encodeWithSignature(_signature, _contract));
-
-        require(success, string(abi.encodePacked("Unknown error when recursing in datastore version: ", version)));
-        
-        (_auditor, _contractHash, _deployer, _approved, _destructed, _hash) = abi.decode(data, (address, address, address, bool, bool, string));
-        return (_auditor, _contractHash, _deployer, _approved, _destructed, _hash);
     }
 
     function _recursiveAuditorSearch(address _auditor) private view returns (bool) {
@@ -511,21 +419,6 @@ contract Datastore is Pausable {
         }
 
         return isAnAuditor;
-    }
-
-    function _contractDetails(uint256 _index) private view returns (address, address, address, bool, bool, string memory) {
-        require(0 < contracts.length, "No contracts have been added");
-        require(_index <= contracts.length, "Record does not exist");
-
-        return 
-        (
-            contracts[_index].auditor,
-            contracts[_index].contractHash,
-            contracts[_index].deployer,
-            contracts[_index].approved,
-            contracts[_index].destructed,
-            contracts[_index].creationHash
-        );
     }
 
     function linkDataStore(address _dataStore) external onlyOwner() {
