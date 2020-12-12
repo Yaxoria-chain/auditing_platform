@@ -122,6 +122,11 @@ contract Platform is Pausable {
         emit InitializedDataStore( dataStore );
     }
 
+    function register( address deployer, address auditor, address creationHash ) external whenNotPaused() {
+        IDatastore.register( deployer, auditor, _msgSender(), creationHash );
+    }
+
+
     /**
         @notice Adds a new entry to the datastore post audit and mints the auditor a receipt NFT
         @param auditor The auditor who performed the audit
@@ -196,7 +201,7 @@ contract Platform is Pausable {
          *      Contract function that differs from destruct() is called which passes in anyone.
          *      If they pass in the auditor or deployer and the contract is not actually destroyed then what?
          *      We do not want to force the destruct() function to be auditor only but that would fix this (assuming vetted + honest auditor)
-         * /
+         */
 
         IDatastore( dataStore ).contractDestructed( _msgSender(), sender );
         emit ContractDestructed( sender, _msgSender() );

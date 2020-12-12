@@ -153,6 +153,14 @@ abstract contract Auditable is Ownable {
 
         emit SetPlatform( initiator, platform );
     }
+    
+    function register() external {
+        // TODO: Think about spam calling prior to being audited and where to handle that
+        require( contractCreationHash != address( 0 ),  "Hash has not been set" );
+        require( !audited, "Contract has already been audited" );
+
+        IAuditingPlatform( platform ).register( deployer, auditor, contractCreationHash );
+    }
 
     /**
      *   @notice Auditor is in favor of the contract therefore they approve it and transmit to the platform
