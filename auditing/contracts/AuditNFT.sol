@@ -46,7 +46,7 @@ contract AuditNFT is Ownable, ERC721 {
         _setTokenURI( tokenID, metaData );
 
         uint256 ID = tokenID;
-
+        
         // Increment the token ID for the next mint
         tokenID = tokenID.add( 1 );
 
