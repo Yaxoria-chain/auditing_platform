@@ -12,9 +12,7 @@ interface IDatastore {
     function suspendAuditor( address auditor ) external;
     
     function migrateAuditor( address auditor ) external;
-    
-    function contractDestructed( address sender ) external;
-    
+        
     function reinstateAuditor( address auditor ) external;
     
     function pauseDataStore() external;

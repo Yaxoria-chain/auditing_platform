@@ -16,41 +16,41 @@ import "./IAuditingPlatform.sol";
 abstract contract Auditable is Ownable {
 
     /**
-        @notice the address of the auditor who is auditing the contract that inherits from this contract
+     *  @notice the address of the auditor who is auditing the contract that inherits from this contract
      */
     address public auditor;
 
     /**
-        @notice the destination which the status of the audit is transmitted to
+     *  @notice the destination which the status of the audit is transmitted to
      */
     address public platform;
 
     /**
-        
+     *
      */
     address payable public immutable deployer;
 
     /**
-        @notice A deployed contract has a creation hash, store it so that you can access the code post self destruct
-        @dev When a contract is deployed the first transaction is the contract creation - use that hash
+     *  @notice A deployed contract has a creation hash, store it so that you can access the code post self destruct
+     *  @dev When a contract is deployed the first transaction is the contract creation - use that hash
      */
     address public contractCreationHash;
 
     /**
-        @notice Indicates whether the audit has been completed or is in progress
-        @dev Audit is completed when the bool is set to true otherwise the default is false (in progress)
+     *  @notice Indicates whether the audit has been completed or is in progress
+     *  @dev Audit is completed when the bool is set to true otherwise the default is false (in progress)
      */
     bool public audited;
     
     /**
-        @notice Indicates whether the audit has been approved or opposed
-        @dev Consider this bool only after "audited" is true. Approved is true and Opposed (default) if false
+     *  @notice Indicates whether the audit has been approved or opposed
+     *  @dev Consider this bool only after "audited" is true. Approved is true and Opposed (default) if false
      */
     bool public approved;
 
     /**
-        @notice Modifier used to block or allow method functionality based on the approval / opposition of the audit
-        @dev Use this on every function
+     *  @notice Modifier used to block or allow method functionality based on the approval / opposition of the audit
+     *  @dev Use this on every function
      */
     modifier isApproved() {
         require( approved, "Functionality blocked until contract is approved" );
@@ -58,41 +58,40 @@ abstract contract Auditable is Ownable {
     }
 
     /**
-        @notice Event tracking who set the auditor and who the auditor is
-        @dev Index the sender and the auditor for easier searching
+     *  @notice Event tracking who set the auditor and who the auditor is
+     *  @dev Index the sender and the auditor for easier searching
      */
     event SetAuditor( address indexed sender, address indexed auditor );
     
     /**
-        @notice Event tracking who set the platform and which platform was set
-        @dev Index the sender and the platform for easier searching
+     *  @notice Event tracking who set the platform and which platform was set
+     *  @dev Index the sender and the platform for easier searching
      */
     event SetPlatform( address indexed sender, address indexed platform );
     
     /**
-        @notice Event tracking the status of the audit and who the auditor is
+     *  @notice Event tracking the status of the audit and who the auditor is
      */
     event ApprovedAudit( address auditor );
 
     /**
-        @notice Event tracking the status of the audit and who the auditor is
+     *  @notice Event tracking the status of the audit and who the auditor is
      */
     event OpposedAudit( address auditor );
     
     /**
-        @notice A contract has a transaction which is the contract creation.
-        @dev The contract creation hash allows one to view the bytecode of the contract even after it has self destructed
+     *  @notice A contract has a transaction which is the contract creation.
+     *  @dev The contract creation hash allows one to view the bytecode of the contract even after it has self destructed
      */
     event CreationHashSet( address hash );
 
     /**
-     *   @notice 
-     *   @param _auditor an address of a person who may or may not actually be an auditor
-     *   @param _platform an address of a contract which may or may not be a valid platform
+     *  @notice 
+     *  @param _auditor an address of a person who may or may not actually be an auditor
+     *  @param _platform an address of a contract which may or may not be a valid platform
      */
     constructor( address _auditor, address _platform ) Ownable() {
         deployer = _owner;
-
         auditor = _auditor;
         platform = _platform;
 
@@ -101,9 +100,9 @@ abstract contract Auditable is Ownable {
     }
 
     /**
-     *   @notice Method used to set the contract creation has before the audit is completed
-     *   @dev After deploying this is the first thing that must be done by the owner and the owner only gets 1 attempt to prevent race conditions with the auditor
-     *   @param _creationHash The transaction hash representing the contract creation
+     *  @notice Method used to set the contract creation has before the audit is completed
+     *  @dev After deploying this is the first thing that must be done by the owner and the owner only gets 1 attempt to prevent race conditions with the auditor
+     *  @param _creationHash The transaction hash representing the contract creation
      */
     function setContractCreationHash( address _creationHash ) external onlyOwner() {
         // Prevent the owner from setting the hash post audit for safety
@@ -119,8 +118,8 @@ abstract contract Auditable is Ownable {
     }
 
     /**
-     *   @notice Used to change the auditor by either the owner or auditor prior to the completion of the audit
-     *   @param _auditor an address indicating who the new auditor will be (may be a contract)
+     *  @notice Used to change the auditor by either the owner or auditor prior to the completion of the audit
+     *  @param _auditor an address indicating who the new auditor will be (may be a contract)
      */
     function setAuditor( address _auditor ) external {
         // If auditor bails then owner can change
@@ -137,8 +136,8 @@ abstract contract Auditable is Ownable {
     }
 
     /**
-     *   @notice Used to change the platform by either the owner or auditor prior to the completion of the audit
-     *   @param _platform an address indicating a contract which will be the new platform (middle man)
+     *  @notice Used to change the platform by either the owner or auditor prior to the completion of the audit
+     *  @param _platform an address indicating a contract which will be the new platform (middle man)
      */
     function setPlatform( address _platform ) external {
         // If auditor bails then owner can change
@@ -163,9 +162,9 @@ abstract contract Auditable is Ownable {
     }
 
     /**
-     *   @notice Auditor is in favor of the contract therefore they approve it and transmit to the platform
-     *   @param _creationHash The contract creation hash that the owner set
-     *   @dev The auditor and owner may conspire to use a different hash therefore the platform would yeet them after the fact - if they find out
+     *  @notice Auditor is in favor of the contract therefore they approve it and transmit to the platform
+     *  @param _creationHash The contract creation hash that the owner set
+     *  @dev The auditor and owner may conspire to use a different hash therefore the platform would yeet them after the fact - if they find out
      */
     function approveAudit( address _creationHash ) external {
         // Only the auditor should be able to approve
@@ -191,9 +190,9 @@ abstract contract Auditable is Ownable {
     }
 
     /**
-        @notice Auditor is against the contract therefore they oppose it and transmit to the platform
-        @param _creationHash The contract creation hash that the owner set
-        @dev The auditor and owner may conspire to use a different hash therefore the platform would yeet them after the fact - if they find out
+     *  @notice Auditor is against the contract therefore they oppose it and transmit to the platform
+     *  @param _creationHash The contract creation hash that the owner set
+     *  @dev The auditor and owner may conspire to use a different hash therefore the platform would yeet them after the fact - if they find out
      */
     function opposeAudit( address _creationHash ) external {
         address initiator = _msgSender();
@@ -219,7 +218,7 @@ abstract contract Auditable is Ownable {
     }
 
     /**
-        @notice Allows the auditor or the owner to clean up after themselves and return a portion of the deployment funds if the contract is opposed
+     *  @notice Allows the auditor or the owner to clean up after themselves and return a portion of the deployment funds if the contract is opposed
      */
     function destruct() external {
         // TODO: Would be nice to allow them to change ownership and have the new owner destroy too but that requires

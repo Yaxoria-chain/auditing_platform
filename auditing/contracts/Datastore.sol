@@ -120,10 +120,6 @@ contract Datastore is ContractStore, AuditorStore, DeployerStore, Pausable {
         return _contractDetailsRecursiveSearch( contract_, previousDatastore );
     }
 
-    function contractDestructed( address contract_, address initiator ) external onlyOwner() {
-        _contractDestructed( contract_, initiator );
-    }
-
     /**
         @notice Check in the current data store if the deployer address has ever been added
         @param deployer The address, intented to be a wallet (but may be a contract), which represents a deployer

@@ -34,7 +34,6 @@ contract ContractStore {
         uint256         contractIndex
     );
 
-    event ContractDestructed( address indexed sender, address contract_ );
     event CompletedAudit( address indexed contract_, address indexed auditor, bool indexed approved );
 
     constructor() internal {}
@@ -80,19 +79,6 @@ contract ContractStore {
         }
         
         emit CompletedAudit( contract_, auditor, approved );
-    }
-        
-    }
-
-    function _contractDestructed( address contract_, address initiator ) internal {
-        uint256 index = _contractIndex( contract_ );
-
-        require( contracts[ index ].auditor == initiator || contracts[ index ].deployer == initiator,   "Action restricted to contract Auditor or Deployer" );
-        require( !contracts[ index ].destructed,                                                        "Contract already marked as destructed" );
-
-        contracts[ index ].destructed = true;
-
-        emit ContractDestructed( initiator, contract_ );
     }
 
     function _hasContractRecord( address contractHash_ ) internal view returns ( bool ) {
