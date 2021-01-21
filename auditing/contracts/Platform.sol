@@ -100,6 +100,8 @@ contract Platform is Pausable {
      */
     event UnpausedDataStore( address indexed sender, address indexed dataStore );
 
+    event RegisteringContract( address contract_, address auditor, address deployer, address creationHash );
+
     /**
      *  @notice Set the NFT to be able to send them to auditors and the datastore that will store the audit data
      *  @param _NFT The non-fungible token that shall be issued as a receipt to the auditor for their work
@@ -115,7 +117,11 @@ contract Platform is Pausable {
     }
 
     function register( address deployer, address auditor, address creationHash ) external whenNotPaused() {
+        // TODO: Flaw, a malicious contract may just create a method which enters valid credentials to use this
+        //       ....but that is no different than an innocent contract. Can we differentiate?
         IDatastore( dataStore ).register( deployer, auditor, _msgSender(), creationHash );
+
+        emit RegisteringContract( _msgSender(), auditor, deployer, creationHash );
     }
 
     /**

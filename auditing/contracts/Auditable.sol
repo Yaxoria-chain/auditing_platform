@@ -37,6 +37,12 @@ abstract contract Auditable is Ownable {
     address public contractCreationHash;
 
     /**
+     * @notice After the creation hash is set by the deployer/dev the auditor must confirm that the correct 
+     *         hash has been set in order to proceed to register the contract in the data store
+     */
+    bool confirmedCreationHash;
+
+    /**
      *  @notice Indicates whether the audit has been completed or is in progress
      *  @dev Audit is completed when the bool is set to true otherwise the default is false (in progress)
      */
@@ -154,11 +160,19 @@ abstract contract Auditable is Ownable {
     }
     
     function register() external {
-        // TODO: Think about spam calling prior to being audited and where to handle that
-        require( contractCreationHash != address( 0 ),  "Hash has not been set" );
-        require( !audited, "Contract has already been audited" );
+        require( confirmedCreationHash, "Hash has not been confirmed to be identical" );
+        require( !audited,              "Contract has already been audited" );
 
         IAuditingPlatform( platform ).register( deployer, auditor, contractCreationHash );
+    }
+
+    function approveCreationHash( address creationHash ) external {
+        // TODO: Flaw, any "auditor" may collude here and set the incorrect hash to register something else
+        require( _msgSender() == auditor,               "Auditor only" );
+        require( contractCreationHash != address( 0 ),  "Hash has not been set" );
+        require( _creationHash == contractCreationHash, "Hashes do not match" );
+
+        confirmedCreationHash = true;
     }
 
     /**
@@ -167,13 +181,9 @@ abstract contract Auditable is Ownable {
      *  @dev The auditor and owner may conspire to use a different hash therefore the platform would yeet them after the fact - if they find out
      */
     function approveAudit( address _creationHash ) external {
-        // Only the auditor should be able to approve
         address initiator = _msgSender();
         require( initiator == auditor, "Auditor only" );
-
-        // Make sure that the hash has been set and that they match
-        require( contractCreationHash != address( 0 ),  "Hash has not been set" );
-        require( _creationHash == contractCreationHash, "Hashes do not match" );
+        require( confirmedCreationHash, "Hash has not been confirmed to be identical" );
         
         // Auditor cannot change their mind and approve/oppose multiple times
         require( !audited, "Contract has already been audited" );
@@ -183,7 +193,6 @@ abstract contract Auditable is Ownable {
         approved = true;
 
         // TODO: think about the owner being sent and transfer of ownership and how that affects the store
-        // Inform the platform    
         IAuditingPlatform( platform ).completeAudit( initiator, deployer, address( this ), _creationHash, approved );
 
         emit ApprovedAudit( initiator );
@@ -197,11 +206,7 @@ abstract contract Auditable is Ownable {
     function opposeAudit( address _creationHash ) external {
         address initiator = _msgSender();
         require( initiator == auditor, "Auditor only" );
-
-        // Make sure that the hash has been set and that they match
-        // Design Flaw: Auditor and Deployer may colllude and use a different hash - cannot fix with code..?
-        require( contractCreationHash != address( 0 ),  "Hash has not been set" );
-        require( _creationHash == contractCreationHash, "Hashes do not match" );
+        require( confirmedCreationHash, "Hash has not been confirmed to be identical" );
         
         // Auditor cannot change their mind and approve/oppose multiple times
         require( !audited, "Cannot oppose an audited contract" );
@@ -211,31 +216,10 @@ abstract contract Auditable is Ownable {
         approved = false;
 
         // TODO: think about the owner being sent and transfer of ownership and how that affects the store
-        // Inform the platform
         IAuditingPlatform( platform ).completeAudit( initiator, deployer, address( this ), _creationHash, approved );
 
         emit OpposedAudit( initiator );
     }
 
-    /**
-     *  @notice Allows the auditor or the owner to clean up after themselves and return a portion of the deployment funds if the contract is opposed
-     */
-    function destruct() external {
-        // TODO: Would be nice to allow them to change ownership and have the new owner destroy too but that requires
-        //       changes to the data stores to keep track of the current owner too. Not an issue but it is a nice to have (for them).
-        //       For this to occur there needs to be a function that calls to the platform -> data store to update the ownership and
-        //       then when this is called you check for the auditor, deployer or owner calling. If it is them then call the platform ->
-        //       data store (which would have its own checks for one of those 3 otherwise it reverts)
-        
-        address initiator = _msgSender();
-
-        require( initiator == auditor || initiator == deployer,     "Auditor and Deployer only" );
-        require( audited,                                           "Cannot destruct an unaudited contract" );
-        require( !approved,                                         "Cannot destruct an approved contract" );
-        
-        IAuditingPlatform( platform ).contractDestructed( initiator );
-
-        selfdestruct( deployer );
-    }
 }
 

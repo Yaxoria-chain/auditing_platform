@@ -27,28 +27,30 @@ contract ContractStore {
     mapping( address => uint256 ) private contractCreationHash;
 
     event NewContractRecord(
-        address indexed auditor, 
         address indexed deployer, 
-        address         contract_, 
-        address         hash, 
+        address indexed contract_, 
+        address indexed creationHash, 
         uint256         contractIndex
     );
 
-    event CompletedAudit( address indexed contract_, address indexed auditor, bool indexed approved );
+    event CompletedAudit( 
+        address indexed contract_, 
+        address indexed auditor, 
+        bool    indexed approved 
+    );
 
     constructor() internal {}
 
-    function _saveContract( address auditor, address deployer, address contract_, address hash ) internal returns ( uint256 ) {
-        require( !_hasContractRecord( contract_ ),  "Contract exists in the contracts mapping" );
-        require( !_hasCreationRecord( hash ),       "Contract exists in the contract creation hash mapping" );
+    function _register( address contract_, address deployer, address creationHash ) internal {
+        require( !_hasContractRecord( contract_ ),      "Contract exists in the contracts mapping" );
+        require( !_hasCreationRecord( creationHash ),   "Contract exists in the contract creation hash mapping" );
 
         // Create a single struct for the contract data and then reference it via indexing instead of managing mulitple storage locations
         // TODO: can I omit the destructed argument since the default bool is false?        
         Contract memory _contractData = Contract({
-            auditor:        auditor,
             deployer:       deployer,
             contractHash:   contract_,
-            creationHash:   hash
+            creationHash:   creationHash
         });
 
         // Start adding from the next position and thus have an empty 0th default value which indicates an error to the user
@@ -58,9 +60,34 @@ contract ContractStore {
 
         // Add to mapping for easy lookup, note that 0th index will also be default which allows us to do some safety checks
         contractHash[ contract_ ] = contractIndex_;
-        contractCreationHash[ hash ] = contractIndex_;
+        contractCreationHash[ creationHash ] = contractIndex_;
 
-        emit NewContractRecord( auditor, deployer, contract_, hash, contractIndex_ );
+        emit NewContractRecord( deployer, contract_, creationHash, contractIndex_ );
+    }
+
+    // TODO: check the complete workflow and adapt the code
+    function _completeAudit( address deployer, address contract_, address creationHash ) internal returns ( uint256 ) {
+        require( !_hasContractRecord( contract_ ),  "Contract exists in the contracts mapping" );
+        require( !_hasCreationRecord( creationHash ),       "Contract exists in the contract creation hash mapping" );
+
+        // Create a single struct for the contract data and then reference it via indexing instead of managing mulitple storage locations
+        // TODO: can I omit the destructed argument since the default bool is false?        
+        Contract memory _contractData = Contract({
+            deployer:       deployer,
+            contractHash:   contract_,
+            creationHash:   creationHash
+        });
+
+        // Start adding from the next position and thus have an empty 0th default value which indicates an error to the user
+        uint256 contractCount = contracts.length;
+        contracts[ contractCount++ ] = _contractData;
+        uint256 contractIndex_ = contracts.length;
+
+        // Add to mapping for easy lookup, note that 0th index will also be default which allows us to do some safety checks
+        contractHash[ contract_ ] = contractIndex_;
+        contractCreationHash[ creationHash ] = contractIndex_;
+
+        emit NewContractRecord( deployer, contract_, creationHash, contractIndex_ );
         return contractIndex_;
     }
     

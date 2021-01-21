@@ -67,7 +67,7 @@ contract DeployerStore {
             activeDeployerCount = activeDeployerCount.add( 1 );
 
             // Which platform initiated the call on the deployer
-            // Since this is an internal call will the caller change to the data store?
+            // TODO: Since this is an internal call will the caller change to the data store?
             emit AddedDeployer( _msgSender(), deployer );
         }
     }
@@ -88,7 +88,7 @@ contract DeployerStore {
         blacklistedDeployerCount = blacklistedDeployerCount.add( 1 );
 
         // Which platform initiated the call on the deployer
-        // Since this is an internal call will the caller change to the data store?
+        // TODO: Since this is an internal call will the caller change to the data store?
         emit SuspendedDeployer( _msgSender(), deployer );
     }
 
@@ -102,7 +102,7 @@ contract DeployerStore {
         blacklistedDeployerCount = blacklistedDeployerCount.sub( 1 );
 
         // Which platform initiated the call on the deployer
-        // Since this is an internal call will the caller change to the data store?
+        // TODO: Since this is an internal call will the caller change to the data store?
         emit ReinstatedDeployer( _msgSender(), deployer );
     }
 

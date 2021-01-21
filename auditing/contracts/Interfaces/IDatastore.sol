@@ -5,7 +5,7 @@ interface IDatastore {
 
     function completeAudit( address auditor, address deployer, address contract_, address txHash, bool approved ) external;
     
-    function register( address deployer, address auditor, address contract_, address creationHash ) external;
+    function register( address contract_, address auditor, address deployer, address creationHash ) external;
     
     function addAuditor( address auditor ) external;
     

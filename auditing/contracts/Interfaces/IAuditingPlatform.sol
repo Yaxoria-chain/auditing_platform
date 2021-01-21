@@ -3,11 +3,9 @@ pragma solidity 0.7.4;
 
 interface IAuditingPlatform {
     
-    function completeAudit( address auditor, address deployer, address contract_, address hash, bool approved ) external;
+    function completeAudit( address auditor, address deployer, address hash, bool approved ) external;
     
     function migrateAuditor( address auditor ) external;
-    
-    function contractDestructed( address sender ) external;
 
     function register( address deployer, address auditor, address creationHash ) external;
 
