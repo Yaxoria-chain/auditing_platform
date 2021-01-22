@@ -31,18 +31,6 @@ abstract contract Auditable is Ownable {
     address payable public immutable deployer;
 
     /**
-     *  @notice A deployed contract has a creation hash, store it so that you can access the code post self destruct
-     *  @dev When a contract is deployed the first transaction is the contract creation - use that hash
-     */
-    address public contractCreationHash;
-
-    /**
-     * @notice After the creation hash is set by the deployer/dev the auditor must confirm that the correct 
-     *         hash has been set in order to proceed to register the contract in the data store
-     */
-    bool confirmedCreationHash;
-
-    /**
      *  @notice Indicates whether the audit has been completed or is in progress
      *  @dev Audit is completed when the bool is set to true otherwise the default is false (in progress)
      */
@@ -106,59 +94,76 @@ abstract contract Auditable is Ownable {
     }
 
     /**
-     *  @notice Method used to set the contract creation has before the audit is completed
-     *  @dev After deploying this is the first thing that must be done by the owner and the owner only gets 1 attempt to prevent race conditions with the auditor
-     *  @param _creationHash The transaction hash representing the contract creation
-     */
-    function setContractCreationHash( address _creationHash ) external onlyOwner() {
-        // Prevent the owner from setting the hash post audit for safety
-        require( !audited, "Contract has already been audited" );
-
-        // We do not want the deployer to change this as the auditor is approving/opposing
-        // Auditor can check that this has been set at the beginning and move on
-        require( contractCreationHash == address( 0 ), "Hash has already been set" );
-
-        contractCreationHash = _creationHash;
-
-        emit CreationHashSet( contractCreationHash );
-    }
-
-    /**
-     *  @notice Used to change the auditor by either the owner or auditor prior to the completion of the audit
-     *  @param _auditor an address indicating who the new auditor will be (may be a contract)
+     *  @notice Used to change the auditor by either the owner prior to the completion of the audit
+     *  @param _auditor an address indicating who the new auditor will be
      */
     function setAuditor( address _auditor ) external {
-        // If auditor bails then owner can change
-        // If auditor loses contact with owner and cannot complete the audit then they can change
-        address initiator = _msgSender();
-        require( initiator == auditor || initiator == _owner, "Auditor and Owner only" );
+        require( _msgSender() == _owner, "Owner only" );
 
         // Do not spam events after the audit; easier to check final state if you cannot change it
         require( !audited, "Cannot change auditor post audit" );
 
         auditor = _auditor;
 
-        emit SetAuditor( initiator, auditor );
+        emit SetAuditor( _msgSender(), auditor );
     }
 
     /**
-     *  @notice Used to change the platform by either the owner or auditor prior to the completion of the audit
-     *  @param _platform an address indicating a contract which will be the new platform (middle man)
+     *  @notice Used to change the platform by either the owner prior to the completion of the audit
+     *  @param _platform an address indicating a contract which will be the new platform
      */
     function setPlatform( address _platform ) external {
-        // If auditor bails then owner can change
-        // If auditor loses contact with owner and cannot complete the audit then they can change
-        address initiator = _msgSender();
-        require( initiator == auditor || initiator == _owner, "Auditor and Owner only" );
+        require( _msgSender() == _owner, "Owner only" );
 
         // Do not spam events after the audit; easier to check final state if you cannot change it
         require( !audited, "Cannot change platform post audit" );
 
         platform = _platform;
 
-        emit SetPlatform( initiator, platform );
+        emit SetPlatform( _msgSender(), platform );
     }
-    
+
+    function register() external {
+        require( !audited, "Contract has already been audited" );
+
+        IAuditingPlatform( platform ).register( deployer );
+    }
+
+    /**
+     *  @notice Auditor is in favor of the contract therefore they approve it
+     */
+    function approveAudit() external {
+        require( _msgSender() == auditor, "Auditor only" );
+
+        // Auditor cannot change their mind and approve/oppose multiple times
+        require( !audited, "Contract has already been audited" );
+
+        // Switch to true to complete audit and approve
+        audited = true;
+        approved = true;
+
+        emit ApprovedAudit( _msgSender() );
+    }
+
+    /**
+     *  @notice Auditor is against the contract therefore they oppose it
+     */
+    function opposeAudit() external {
+        require( _msgSender() == auditor, "Auditor only" );
+        
+        // Auditor cannot change their mind and approve/oppose multiple times
+        require( !audited, "Cannot oppose an audited contract" );
+
+        // Switch to true to complete the audit and explicitly set approved to false (default is false)
+        audited = true;
+        approved = false;
+
+        emit OpposedAudit( _msgSender() );
+    }
+
+
+
+    // TODO: remove and move to the platform    
     function register() external {
         require( confirmedCreationHash, "Hash has not been confirmed to be identical" );
         require( !audited,              "Contract has already been audited" );
@@ -166,6 +171,7 @@ abstract contract Auditable is Ownable {
         IAuditingPlatform( platform ).register( deployer, auditor, contractCreationHash );
     }
 
+    // TODO: remove and move to the platform as part of registration
     function approveCreationHash( address creationHash ) external {
         // TODO: Flaw, any "auditor" may collude here and set the incorrect hash to register something else
         require( _msgSender() == auditor,               "Auditor only" );
@@ -175,11 +181,7 @@ abstract contract Auditable is Ownable {
         confirmedCreationHash = true;
     }
 
-    /**
-     *  @notice Auditor is in favor of the contract therefore they approve it and transmit to the platform
-     *  @param _creationHash The contract creation hash that the owner set
-     *  @dev The auditor and owner may conspire to use a different hash therefore the platform would yeet them after the fact - if they find out
-     */
+    // TODO: remove and make simpler, move to platform
     function approveAudit( address _creationHash ) external {
         address initiator = _msgSender();
         require( initiator == auditor, "Auditor only" );
@@ -198,11 +200,7 @@ abstract contract Auditable is Ownable {
         emit ApprovedAudit( initiator );
     }
 
-    /**
-     *  @notice Auditor is against the contract therefore they oppose it and transmit to the platform
-     *  @param _creationHash The contract creation hash that the owner set
-     *  @dev The auditor and owner may conspire to use a different hash therefore the platform would yeet them after the fact - if they find out
-     */
+    // TODO: remove and make simpler, move to platform
     function opposeAudit( address _creationHash ) external {
         address initiator = _msgSender();
         require( initiator == auditor, "Auditor only" );

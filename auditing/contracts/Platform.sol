@@ -4,6 +4,7 @@ pragma solidity 0.7.4;
 import "./Pausable.sol";
 import "./IDatastore.sol";
 import "./IAuditNFT.sol";
+import "./IAuditable.sol";
 
 // TODO: How do you implement the completeAudit, migrateAuditor, contractDestructed via an interface? Prettu sure the caller using the interface would be the contract ...
 // TODO: Does the platform really need the same events as the store? Pointless in between?
@@ -122,6 +123,26 @@ contract Platform is Pausable {
         IDatastore( dataStore ).register( deployer, auditor, _msgSender(), creationHash );
 
         emit RegisteringContract( _msgSender(), auditor, deployer, creationHash );
+    }
+
+    /**
+     *  @notice A deployed contract has a creation hash, store it so that you can access the code post self destruct
+     *  @dev When a contract is deployed the first transaction is the contract creation - use that hash
+     */
+    address public contractCreationHash;
+
+    function register( address contract_, address deployer, address creationHash ) external whenNotPaused() {
+        // TODO: New, called by auditor
+        IDatastore( dataStore ).register( contract_, deployer, _msgSender(), creationHash );
+
+        emit RegisteringContract( contract_, deployer, _msgSender(), creationHash );
+    }
+
+    function confirmAuditor( address contract_ ) external {
+        require( IDatastore( dataStore ).isAuditor( _msgSender() ), "Valid auditors only");
+        IAuditable( contract_ ).confirmAuditor( _msgSender() );
+
+        emit ConfirmedAuditor( contract_, _msgSender() );
     }
 
     /**

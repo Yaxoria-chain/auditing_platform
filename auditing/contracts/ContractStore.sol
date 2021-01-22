@@ -46,7 +46,6 @@ contract ContractStore {
         require( !_hasCreationRecord( creationHash ),   "Contract exists in the contract creation hash mapping" );
 
         // Create a single struct for the contract data and then reference it via indexing instead of managing mulitple storage locations
-        // TODO: can I omit the destructed argument since the default bool is false?        
         Contract memory _contractData = Contract({
             deployer:       deployer,
             contractHash:   contract_,
