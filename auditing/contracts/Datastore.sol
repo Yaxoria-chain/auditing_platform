@@ -23,6 +23,12 @@ contract Datastore is ContractStore, AuditorStore, DeployerStore, Pausable {
 
     // Daisy chain stores
     event LinkedDataStore( address indexed _owner, address indexed datastore );
+
+    event RegisteredContract( address indexed contract_, address indexed deployer );
+    event SetAuditor( address indexed contract_, address indexed auditor );
+    event ConfirmedRegistration( address indexed contract_, address indexed deployer, address creationHash, address indexed auditor );
+    event ApprovedAudit( address contract_, address indexed auditor );
+    event OpposedAudit( address contract_, address indexed auditor );
     
     constructor() Pausable() public {}
 
@@ -71,7 +77,7 @@ contract Datastore is ContractStore, AuditorStore, DeployerStore, Pausable {
      */
     function auditorApprovedContract( address auditor, uint256 index ) external view returns ( address, address, address, address, bool, bool ) {
         uint256 contractIndex = _auditorApprovedContract( auditor, index );
-        return _contractDetails( contractIndex );
+        return _contractDetails( contractIndex );   // TODO: this does not take an index
     }
 
     /**
@@ -82,7 +88,7 @@ contract Datastore is ContractStore, AuditorStore, DeployerStore, Pausable {
      */
     function auditorOpposedContract( address auditor, uint256 index ) external view returns ( address, address, address, address, bool, bool ) {
         uint256 contractIndex = _auditorOpposedContract( auditor, index );
-        return _contractDetails( contractIndex );
+        return _contractDetails( contractIndex );   // TODO: this does not take an index
     }
 
     /**
@@ -175,45 +181,99 @@ contract Datastore is ContractStore, AuditorStore, DeployerStore, Pausable {
         _migrate( migrator, auditor );
     }
 
-    function register( address contract_, address auditor, address deployer, address creationHash ) external onlyOwner() whenNotPaused() {
+    function register( address contract_, address deployer ) external onlyOwner() whenNotPaused() {
         require( activeStore, "Store has been deactivated" );
-
-        // Must be a valid auditor in the current store to be able to write to the current store
-        require( _hasAuditorRecord( auditor ),  "No auditor record in the current store" );
-        require( _isAuditor( auditor ),         "Auditor has been suspended" );
         
         uint256 size;
         assembly { size:= extcodesize( contract_ ) }
         require( size > 0,  "Contract argument is not a valid contract address" );
-        
-        ( uint256 ) = _register( contract_, deployer, creationHash );
 
+        require( !_hasContractRecord( contract_ ), "Contract has already been registered" );
+        
+        _registerContract( contract_, deployer );
         _addDeployer( deployer );
+
+        emit RegisteredContract( contract_, deployer );
     }
 
-    /**
-     *  @notice Write a new completed audit into the data store
-     *  @param auditor The address, intented to be a wallet, which represents an auditor
-     *  @param deployer The address, intented to be a wallet (but may be a contract), which represents a deployer
-     *  @param contract_ The hash used to search for the contract
-     *  @param approved Boolean indicating whether the contract has passed or failed the audit
-     *  @param txHash The hash depicting the transaction which created the contract
-     */
-    function completeAudit( address auditor, address deployer, address contract_, address txHash, bool approved ) external onlyOwner() whenNotPaused() {
+    function setAuditor( address contract_, address auditor ) external onlyOwner() whenNotPaused() {
         require( activeStore, "Store has been deactivated" );
 
         // Must be a valid auditor in the current store to be able to write to the current store
         require( _hasAuditorRecord( auditor ),  "No auditor record in the current store" );
         require( _isAuditor( auditor ),         "Auditor has been suspended" );
 
-        uint256 contractIndex = _completeAudit( auditor, contract_, deployer, txHash, approved );
+        ( _auditor, _deployer, , , audited, ) = _contractDetails( contract_ );
 
-        _addDeployer( deployer );
+        require( !audited, "Cannot make changes post audit" );
 
-        _saveContractIndexForAuditor( auditor, approved, contractIndex );
-        _saveContractIndexForDeplyer( deployer, approved, contractIndex );
+        _setContractAuditor( contract_, auditor );
 
-        emit CompletedAudit( auditor, deployer, contract_, txHash, approved, contractIndex );
+        emit SetAuditor( contract_, auditor );
+    }
+
+    function confirmRegistration( address contract_, address deployer, address creationHash, address auditor ) external onlyOwner() whenNotPaused() {
+        require( activeStore, "Store has been deactivated" );
+
+        // Must be a valid auditor in the current store to be able to write to the current store
+        require( _hasAuditorRecord( auditor ),  "No auditor record in the current store" );
+        require( _isAuditor( auditor ),         "Auditor has been suspended" );
+
+        ( _auditor, _deployer, , , audited, ) = _contractDetails( contract_ );
+
+        require( !audited,              "Cannot make changes post audit" );
+        require( _auditor == auditor,   "Auditors do not match in the store" );
+        require( _deployer == deployer, "Deployers do not match in the store" );
+
+        _setContractCreationHash( contract_, creationHash );
+
+        emit ConfirmedRegistration( contract_, deployer, creationHash, auditor );
+    }
+
+    /**
+     *  @notice Write a new approved audit into the data store
+     *  @param contract_ The hash used to search for the contract
+     *  @param auditor The address, intented to be a wallet, which represents an auditor
+     */
+    function approveAudit( address contract_, address auditor ) external onlyOwner() whenNotPaused() {
+        require( activeStore, "Store has been deactivated" );
+
+        // Must be a valid auditor in the current store to be able to write to the current store
+        require( _hasAuditorRecord( auditor ),  "No auditor record in the current store" );
+        require( _isAuditor( auditor ),         "Auditor has been suspended" );
+
+        bool approved = true;
+        uint256 contractIndex_ = _contractIndex( contract_ );
+
+        _setContractApproval( contract_, approved );
+
+        _saveContractIndexForAuditor( auditor, approved, contractIndex_ );
+        _saveContractIndexForDeplyer( deployer, approved, contractIndex_ );
+
+        emit ApprovedAudit( contract_, auditor );
+    }
+
+    /**
+     *  @notice Write a new approved audit into the data store
+     *  @param contract_ The hash used to search for the contract
+     *  @param auditor The address, intented to be a wallet, which represents an auditor
+     */
+    function opposeAudit( address contract_, address auditor ) external onlyOwner() whenNotPaused() {
+        require( activeStore, "Store has been deactivated" );
+
+        // Must be a valid auditor in the current store to be able to write to the current store
+        require( _hasAuditorRecord( auditor ),  "No auditor record in the current store" );
+        require( _isAuditor( auditor ),         "Auditor has been suspended" );
+
+        bool approved = false;
+        uint256 contractIndex_ = _contractIndex( contract_ );
+
+        _setContractApproval( contract_, approved );
+
+        _saveContractIndexForAuditor( auditor, approved, contractIndex_ );
+        _saveContractIndexForDeplyer( deployer, approved, contractIndex_ );
+
+        emit OpposedAudit( contract_, auditor );
     }
 
     function linkDataStore( address datastore ) external onlyOwner() {

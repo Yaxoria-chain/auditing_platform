@@ -9,5 +9,7 @@ interface IAuditingPlatform {
 
     function register( address deployer, address auditor, address creationHash ) external;
 
+    function setAuditor( address auditor ) external;
+
 }
 

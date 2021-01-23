@@ -101,7 +101,15 @@ contract Platform is Pausable {
      */
     event UnpausedDataStore( address indexed sender, address indexed dataStore );
 
-    event RegisteringContract( address contract_, address auditor, address deployer, address creationHash );
+    event RegisteredContract( address contract_, address deployer );
+
+    event ConfirmedContractRegistration( address contract_, address deployer, address creationHash, address auditor );
+
+    event SetContractAuditor( address contract_, address auditor );
+
+    event ApprovedAudit( address contract_, address auditor );
+
+    event OpposedAudit( address contract_, address auditor );
 
     /**
      *  @notice Set the NFT to be able to send them to auditors and the datastore that will store the audit data
@@ -117,32 +125,39 @@ contract Platform is Pausable {
         emit InitializedDataStore( dataStore );
     }
 
-    function register( address deployer, address auditor, address creationHash ) external whenNotPaused() {
-        // TODO: Flaw, a malicious contract may just create a method which enters valid credentials to use this
-        //       ....but that is no different than an innocent contract. Can we differentiate?
-        IDatastore( dataStore ).register( deployer, auditor, _msgSender(), creationHash );
+    function register( address deployer ) external whenNotPaused() {
+        IDatastore( dataStore ).register( _msgSender(), deployer );
 
-        emit RegisteringContract( _msgSender(), auditor, deployer, creationHash );
+        emit RegisteredContract( _msgSender(), deployer );
+    }
+
+    function setAuditor( address auditor ) external whenNotPaused() {
+        IDatastore( dataStore ).setAuditor( _msgSender(), auditor );
+
+        emit SetContractAuditor( _msgSender(), auditor );
     }
 
     /**
      *  @notice A deployed contract has a creation hash, store it so that you can access the code post self destruct
      *  @dev When a contract is deployed the first transaction is the contract creation - use that hash
      */
-    address public contractCreationHash;
+    function confirmRegistration( address contract_, address deployer, address creationHash ) external whenNotPaused() {
+        // TODO: best to use string.... creationHash
+        IDatastore( dataStore ).confirmRegistration( contract_, deployer, creationHash, _msgSender() );
 
-    function register( address contract_, address deployer, address creationHash ) external whenNotPaused() {
-        // TODO: New, called by auditor
-        IDatastore( dataStore ).register( contract_, deployer, _msgSender(), creationHash );
-
-        emit RegisteringContract( contract_, deployer, _msgSender(), creationHash );
+        emit ConfirmedContractRegistration( contract_, deployer, creationHash, _msgSender() );
     }
 
-    function confirmAuditor( address contract_ ) external {
+    function approveAudit( address contract_ ) external whenNotPaused() {
         require( IDatastore( dataStore ).isAuditor( _msgSender() ), "Valid auditors only");
-        IAuditable( contract_ ).confirmAuditor( _msgSender() );
 
-        emit ConfirmedAuditor( contract_, _msgSender() );
+        IDatastore( dataStore ).approveAudit( contract_, _msgSender() );
+        IAuditable( contract_ ).approveAudit( _msgSender() );
+
+        ( _auditor, _deployer, , _creationHash, _approved ) = IDatastore( dataStore ).contractDetails( contract_ );
+        IAuditNFT( NFT ).mint( _auditor, contract_, _deployer, _approved, _creationHash );
+
+        emit ApprovedAudit( contract_, _msgSender() );
     }
 
     /**

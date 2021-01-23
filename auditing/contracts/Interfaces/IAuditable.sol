@@ -5,5 +5,9 @@ interface IAuditable {
     
     function confirmAuditor( address auditor ) external;
 
+    function approveAudit( address auditor ) external;
+
+    function opposeAudit( address auditor ) external;
+
 }
 

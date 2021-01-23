@@ -8,6 +8,7 @@ contract ContractStore {
     
     using SafeMath for uint256;
 
+    uint256 public registeredContractCount;
     uint256 public approvedContractCount;
     uint256 public opposedContractCount;
 
@@ -18,8 +19,8 @@ contract ContractStore {
         address deployer;
         address contractHash;
         address creationHash;
+        bool    audited;
         bool    approved;
-        bool    destructed;
     }
 
     // Note for later, 0th index is used to check if it already exists
@@ -27,84 +28,84 @@ contract ContractStore {
     mapping( address => uint256 ) private contractCreationHash;
 
     event NewContractRecord(
-        address indexed deployer, 
         address indexed contract_, 
-        address indexed creationHash, 
+        address indexed deployer, 
         uint256         contractIndex
     );
 
-    event CompletedAudit( 
+    event SetContractAuditor( 
         address indexed contract_, 
+        address indexed auditor
+    );
+
+    event SetContractCreationHash( 
+        address indexed contract_, 
+        address indexed creationHash
+    );
+
+    event SetContractApproval( 
+        address indexed contract_,
         address indexed auditor, 
-        bool    indexed approved 
+        bool    indexed approved
     );
 
     constructor() internal {}
 
-    function _register( address contract_, address deployer, address creationHash ) internal {
-        require( !_hasContractRecord( contract_ ),      "Contract exists in the contracts mapping" );
-        require( !_hasCreationRecord( creationHash ),   "Contract exists in the contract creation hash mapping" );
+    function _registerContract( address contract_, address deployer ) internal {
+        require( !_hasContractRecord( contract_ ), "Contract exists in the contracts mapping" );
 
         // Create a single struct for the contract data and then reference it via indexing instead of managing mulitple storage locations
         Contract memory _contractData = Contract({
             deployer:       deployer,
-            contractHash:   contract_,
-            creationHash:   creationHash
+            contractHash:   contract_
         });
 
         // Start adding from the next position and thus have an empty 0th default value which indicates an error to the user
-        uint256 contractCount = contracts.length;
-        contracts[ contractCount++ ] = _contractData;
+        contracts[ contracts.length++ ] = _contractData;
         uint256 contractIndex_ = contracts.length;
 
         // Add to mapping for easy lookup, note that 0th index will also be default which allows us to do some safety checks
         contractHash[ contract_ ] = contractIndex_;
-        contractCreationHash[ creationHash ] = contractIndex_;
 
-        emit NewContractRecord( deployer, contract_, creationHash, contractIndex_ );
+        registeredContractCount = registeredContractCount.add ( 1 );
+
+        emit NewContractRecord( contract_, deployer, contractIndex_ );
     }
 
-    // TODO: check the complete workflow and adapt the code
-    function _completeAudit( address deployer, address contract_, address creationHash ) internal returns ( uint256 ) {
-        require( !_hasContractRecord( contract_ ),  "Contract exists in the contracts mapping" );
-        require( !_hasCreationRecord( creationHash ),       "Contract exists in the contract creation hash mapping" );
+    function _setContractAuditor( contract_, auditor ) internal {
+        uint256 contractIndex_ = _contractIndex( contract_ );
 
-        // Create a single struct for the contract data and then reference it via indexing instead of managing mulitple storage locations
-        // TODO: can I omit the destructed argument since the default bool is false?        
-        Contract memory _contractData = Contract({
-            deployer:       deployer,
-            contractHash:   contract_,
-            creationHash:   creationHash
-        });
+        contracts[ contractIndex_ ].auditor = auditor;
 
-        // Start adding from the next position and thus have an empty 0th default value which indicates an error to the user
-        uint256 contractCount = contracts.length;
-        contracts[ contractCount++ ] = _contractData;
-        uint256 contractIndex_ = contracts.length;
-
-        // Add to mapping for easy lookup, note that 0th index will also be default which allows us to do some safety checks
-        contractHash[ contract_ ] = contractIndex_;
-        contractCreationHash[ creationHash ] = contractIndex_;
-
-        emit NewContractRecord( deployer, contract_, creationHash, contractIndex_ );
-        return contractIndex_;
+        emit SetContractAuditor( contract_, auditor );
     }
-    
-    function completeAudit( address contract_, address auditor, bool approved ) internal {
-        uint256 index = _contractIndex( contract_ );
 
-        require( contracts[ index ].auditor == auditor,   "Action restricted to contract Auditor" );
-        require( !contracts[ index ].destructed,          "Contract already marked as destructed" );
+    function _setContractCreationHash( contract_, creationHash ) internal {
+        require( !_hasCreationRecord( creationHash ), "Contract exists in the contract creation hash mapping" );
         
-        contracts[ index ].approved = approved;
+        uint256 contractIndex_ = _contractIndex( contract_ );
+        contractCreationHash[ creationHash ] = contractIndex_;
         
+        contracts[ contractIndex_ ].creationHash = creationHash;
+
+        emit SetContractCreationHash( contract_, creationHash );
+    }
+
+    function _setContractApproval( address contract_, bool approved ) internal {
+        uint256 contractIndex_ = _contractIndex( contract_ );
+
+        require( !contracts[ contractIndex_ ].audited, "Cannot change audit state post audit" );
+
+        contracts[ contractIndex_ ].audited = true;
+        contracts[ contractIndex_ ].approved = approved;
+
         if ( approved ) {
             approvedContractCount = approvedContractCount.add( 1 );
         } else {
             opposedContractCount = opposedContractCount.add( 1 );
         }
-        
-        emit CompletedAudit( contract_, auditor, approved );
+
+        emit SetContractApproval( contract_, contracts[ contractIndex_ ].auditor, approved );
     }
 
     function _hasContractRecord( address contractHash_ ) internal view returns ( bool ) {
@@ -121,8 +122,8 @@ contract ContractStore {
         address deployer, 
         address contractHash_,
         address creationHash,  
-        bool    approved, 
-        bool    destructed
+        bool    audited, 
+        bool    approved
     ) {
         // Check in all previous stores if this contract has been recorded
         // This is likely to be expensive so it is better to check each store manually / individually
@@ -140,10 +141,10 @@ contract ContractStore {
             deployer      = contracts[ index ].deployer;
             contractHash_ = contracts[ index ].contractHash;
             creationHash  = contracts[ index ].creationHash;
+            audited       = contracts[ index ].audited;
             approved      = contracts[ index ].approved;
-            destructed    = contracts[ index ].destructed;
         } else if ( previousDataStore != address( 0 ) ) {
-            ( auditor, deployer, contractHash_, creationHash, approved, destructed ) = IDatastore( previousDatastore ).searchAllStoresForContractDetails( contract_ );
+            ( auditor, deployer, contractHash_, creationHash, audited, approved ) = IDatastore( previousDatastore ).searchAllStoresForContractDetails( contract_ );
         } else {
             revert( "No contract record in any data store" );
         }
@@ -160,8 +161,8 @@ contract ContractStore {
             contracts[ index ].deployer,
             contracts[ index ].contractHash,
             contracts[ index ].creationHash,
+            contracts[ index ].audited,
             contracts[ index ].approved,
-            contracts[ index ].destructed
         );
     }
 
