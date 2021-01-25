@@ -187,8 +187,6 @@ contract Datastore is ContractStore, AuditorStore, DeployerStore, Pausable {
         uint256 size;
         assembly { size:= extcodesize( contract_ ) }
         require( size > 0,  "Contract argument is not a valid contract address" );
-
-        require( !_hasContractRecord( contract_ ), "Contract has already been registered" );
         
         _registerContract( contract_, deployer );
         _addDeployer( deployer );
@@ -203,7 +201,7 @@ contract Datastore is ContractStore, AuditorStore, DeployerStore, Pausable {
         require( _hasAuditorRecord( auditor ),  "No auditor record in the current store" );
         require( _isAuditor( auditor ),         "Auditor has been suspended" );
 
-        ( _auditor, _deployer, , , audited, ) = _contractDetails( contract_ );
+        ( , , , , audited, ) = _contractDetails( contract_ );
 
         require( !audited, "Cannot make changes post audit" );
 
@@ -242,8 +240,12 @@ contract Datastore is ContractStore, AuditorStore, DeployerStore, Pausable {
         require( _hasAuditorRecord( auditor ),  "No auditor record in the current store" );
         require( _isAuditor( auditor ),         "Auditor has been suspended" );
 
+        // There is only 1 line which is different and that is because it is not the job of the platform (the API) to decide which state
+        // is passed to the store
         bool approved = true;
         uint256 contractIndex_ = _contractIndex( contract_ );
+
+        // TODO: add a check here to make sure that the auditor of the contract is the same auditor as the one that made the call
 
         _setContractApproval( contract_, approved );
 
@@ -265,8 +267,12 @@ contract Datastore is ContractStore, AuditorStore, DeployerStore, Pausable {
         require( _hasAuditorRecord( auditor ),  "No auditor record in the current store" );
         require( _isAuditor( auditor ),         "Auditor has been suspended" );
 
+        // There is only 1 line which is different and that is because it is not the job of the platform (the API) to decide which state
+        // is passed to the store
         bool approved = false;
         uint256 contractIndex_ = _contractIndex( contract_ );
+
+        // TODO: add a check here to make sure that the auditor of the contract is the same auditor as the one that made the call
 
         _setContractApproval( contract_, approved );
 

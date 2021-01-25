@@ -52,7 +52,7 @@ contract ContractStore {
     constructor() internal {}
 
     function _registerContract( address contract_, address deployer ) internal {
-        require( !_hasContractRecord( contract_ ), "Contract exists in the contracts mapping" );
+        require( !_hasContractRecord( contract_ ), "Contract has already been registered" );
 
         // Create a single struct for the contract data and then reference it via indexing instead of managing mulitple storage locations
         Contract memory _contractData = Contract({
@@ -67,7 +67,7 @@ contract ContractStore {
         // Add to mapping for easy lookup, note that 0th index will also be default which allows us to do some safety checks
         contractHash[ contract_ ] = contractIndex_;
 
-        registeredContractCount = registeredContractCount.add ( 1 );
+        registeredContractCount = registeredContractCount.add( 1 );
 
         emit NewContractRecord( contract_, deployer, contractIndex_ );
     }
