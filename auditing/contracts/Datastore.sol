@@ -75,7 +75,7 @@ contract Datastore is ContractStore, AuditorStore, DeployerStore, Pausable {
      *  @param index A number which should be less than or equal to the total number of approved contracts for the auditor
      *  @return The audited contract information
      */
-    function auditorApprovedContract( address auditor, uint256 index ) external view returns ( address, address, address, address, bool, bool ) {
+    function auditorApprovedContract( address auditor, uint256 index ) external view returns ( address, address, address, address, bool, bool, bool ) {
         uint256 contractIndex = _auditorApprovedContract( auditor, index );
         return _contractDetails( contractIndex );   // TODO: this does not take an index
     }
@@ -86,7 +86,7 @@ contract Datastore is ContractStore, AuditorStore, DeployerStore, Pausable {
      *  @param index A number which should be less than or equal to the total number of opposed contracts for the auditor
      *  @return The audited contract information
      */
-    function auditorOpposedContract( address auditor, uint256 index ) external view returns ( address, address, address, address, bool, bool ) {
+    function auditorOpposedContract( address auditor, uint256 index ) external view returns ( address, address, address, address, bool, bool, bool ) {
         uint256 contractIndex = _auditorOpposedContract( auditor, index );
         return _contractDetails( contractIndex );   // TODO: this does not take an index
     }
@@ -116,7 +116,7 @@ contract Datastore is ContractStore, AuditorStore, DeployerStore, Pausable {
      *  @param contract_ Either the hash used to search for the contract or the transaction hash indicating the creation of the contract
      *  @return The data stored regarding the contract audit
      */
-    function contractDetails( address contract_ ) external view returns ( address, address, address, address, bool, bool ) {
+    function contractDetails( address contract_ ) external view returns ( address, address, address, address, bool, bool, bool ) {
         return _contractDetails( contract_ );
     }
 
@@ -197,13 +197,13 @@ contract Datastore is ContractStore, AuditorStore, DeployerStore, Pausable {
     function setAuditor( address contract_, address auditor ) external onlyOwner() whenNotPaused() {
         require( activeStore, "Store has been deactivated" );
 
+        ( , , , , audited, , ) = _contractDetails( contract_ );
+
+        require( !audited, "Cannot make changes post audit" );
+
         // Must be a valid auditor in the current store to be able to write to the current store
         require( _hasAuditorRecord( auditor ),  "No auditor record in the current store" );
         require( _isAuditor( auditor ),         "Auditor has been suspended" );
-
-        ( , , , , audited, ) = _contractDetails( contract_ );
-
-        require( !audited, "Cannot make changes post audit" );
 
         _setContractAuditor( contract_, auditor );
 
@@ -213,15 +213,16 @@ contract Datastore is ContractStore, AuditorStore, DeployerStore, Pausable {
     function confirmRegistration( address contract_, address deployer, address creationHash, address auditor ) external onlyOwner() whenNotPaused() {
         require( activeStore, "Store has been deactivated" );
 
+        ( _auditor, _deployer, , , audited, , ) = _contractDetails( contract_ );
+
+        require( !audited,                      "Cannot make changes post audit" );
+
         // Must be a valid auditor in the current store to be able to write to the current store
         require( _hasAuditorRecord( auditor ),  "No auditor record in the current store" );
         require( _isAuditor( auditor ),         "Auditor has been suspended" );
 
-        ( _auditor, _deployer, , , audited, ) = _contractDetails( contract_ );
-
-        require( !audited,              "Cannot make changes post audit" );
-        require( _auditor == auditor,   "Auditors do not match in the store" );
-        require( _deployer == deployer, "Deployers do not match in the store" );
+        require( _auditor == auditor,           "The auditor attempting to confirm the hash is not the same as the auditor of the contract" );
+        require( _deployer == deployer,         "Deployers do not match in the store" );
 
         _setContractCreationHash( contract_, creationHash );
 
@@ -236,16 +237,20 @@ contract Datastore is ContractStore, AuditorStore, DeployerStore, Pausable {
     function approveAudit( address contract_, address auditor ) external onlyOwner() whenNotPaused() {
         require( activeStore, "Store has been deactivated" );
 
+        ( _auditor, , , , audited, , confirmedHash ) = _contractDetails( contract_ );
+
+        require( !audited,                      "Cannot make changes post audit" );
+
         // Must be a valid auditor in the current store to be able to write to the current store
         require( _hasAuditorRecord( auditor ),  "No auditor record in the current store" );
         require( _isAuditor( auditor ),         "Auditor has been suspended" );
+        require( _auditor == auditor,           "The auditor attempting to approve the audit is not the same as the auditor of the contract" );
+        require( confirmedHash,                 "The auditor must confirm the creation hash first" );
 
         // There is only 1 line which is different and that is because it is not the job of the platform (the API) to decide which state
         // is passed to the store
         bool approved = true;
         uint256 contractIndex_ = _contractIndex( contract_ );
-
-        // TODO: add a check here to make sure that the auditor of the contract is the same auditor as the one that made the call
 
         _setContractApproval( contract_, approved );
 
@@ -263,16 +268,20 @@ contract Datastore is ContractStore, AuditorStore, DeployerStore, Pausable {
     function opposeAudit( address contract_, address auditor ) external onlyOwner() whenNotPaused() {
         require( activeStore, "Store has been deactivated" );
 
+        ( _auditor, , , , audited, , confirmedHash ) = _contractDetails( contract_ );
+
+        require( !audited,                      "Cannot make changes post audit" );
+
         // Must be a valid auditor in the current store to be able to write to the current store
         require( _hasAuditorRecord( auditor ),  "No auditor record in the current store" );
         require( _isAuditor( auditor ),         "Auditor has been suspended" );
+        require( _auditor == auditor,           "The auditor attempting to approve the audit is not the same as the auditor of the contract" );
+        require( confirmedHash,                 "The auditor must confirm the creation hash first" );
 
         // There is only 1 line which is different and that is because it is not the job of the platform (the API) to decide which state
         // is passed to the store
         bool approved = false;
         uint256 contractIndex_ = _contractIndex( contract_ );
-
-        // TODO: add a check here to make sure that the auditor of the contract is the same auditor as the one that made the call
 
         _setContractApproval( contract_, approved );
 

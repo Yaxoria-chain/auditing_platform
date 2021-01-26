@@ -153,7 +153,7 @@ contract Platform is Pausable {
 
     /**
      * @notice A call that is made by a contract which updates its record about the state of the auditor in the data store
-     * @param auditor The entity that is performing that audit on the contract
+     * @param auditor The entity that is performing the audit on the contract
      */
     function setAuditor( address auditor ) external whenNotPaused() {
         IDatastore( dataStore ).setAuditor( _msgSender(), auditor );
@@ -161,7 +161,6 @@ contract Platform is Pausable {
         emit SetContractAuditor( msg.sender, auditor );
     }
 
-    // TODO: check if this is not a thing, if the auditor changes in the data store then the new auditor should be forced to confirm the hash again
     /**
      * @notice The auditor should confirm the registration details of the contract before they can audit it
      * @param contract_ The address of the contract that is being audited
@@ -175,33 +174,39 @@ contract Platform is Pausable {
         emit ConfirmedContractRegistration( contract_, deployer, creationHash, msg.sender );
     }
 
+    /**
+     * @notice Create a record detailing which contract has been approved by the auditor
+     *         unlock the functionality of said contract and mint an NFT for the auditor
+     * @param contract_ The contract that is being audited
+     */
     function approveAudit( address contract_ ) external whenNotPaused() {
-        require( IDatastore( dataStore ).isAuditor( _msgSender() ), "Valid auditors only");
-
         IDatastore( dataStore ).approveAudit( contract_, _msgSender() );
         IAuditable( contract_ ).approveAudit( _msgSender() );
 
-        ( _auditor, _deployer, , _creationHash, _audited, _approved ) = IDatastore( dataStore ).contractDetails( contract_ );
-        IAuditNFT( NFT ).mint( _auditor, contract_, _deployer, _approved, _audited, _creationHash );
+        ( _auditor, _deployer, , _creationHash, _audited, _approved, _confirmedHash ) = IDatastore( dataStore ).contractDetails( contract_ );
+        IAuditNFT( NFT ).mint( _auditor, contract_, _deployer, _approved, _audited, _confirmedHash, _creationHash );
 
         emit ApprovedAudit( contract_, msg.sender );
     }
 
+    /**
+     * @notice Create a record detailing which contract has been opposed by the auditor
+     *         permanently lock the functionality of said contract and mint an NFT for the auditor
+     * @param contract_ The contract that is being audited
+     */
     function opposeAudit( address contract_ ) external whenNotPaused() {
-        require( IDatastore( dataStore ).isAuditor( _msgSender() ), "Valid auditors only");
-
         IDatastore( dataStore ).opposeAudit( contract_, _msgSender() );
         IAuditable( contract_ ).opposeAudit( _msgSender() );
 
-        ( _auditor, _deployer, , _creationHash, _audited, _approved ) = IDatastore( dataStore ).contractDetails( contract_ );
-        IAuditNFT( NFT ).mint( _auditor, contract_, _deployer, _approved, _audited, _creationHash );
+        ( _auditor, _deployer, , _creationHash, _audited, _approved, _confirmedHash ) = IDatastore( dataStore ).contractDetails( contract_ );
+        IAuditNFT( NFT ).mint( _auditor, contract_, _deployer, _approved, _audited, _confirmedHash, _creationHash );
 
         emit OpposedAudit( contract_, msg.sender );
     }
 
     /**
      * @notice Adds a new auditor to the current datastore
-     * @param auditor The auditor who has been added
+     * @param auditor The entity which is obtaining the privilege of being able to perform audits
      */
     function addAuditor( address auditor ) external onlyOwner() whenNotPaused() {
         IDatastore( dataStore ).addAuditor( auditor );
@@ -210,7 +215,7 @@ contract Platform is Pausable {
 
     /**
      * @notice Prevents the auditor from performing any audits
-     * @param auditor The auditor who is suspended
+     * @param auditor The entity which has lost the privilege of being able to perform audits
      */
     function suspendAuditor( address auditor ) external onlyOwner() {
         IDatastore( dataStore ).suspendAuditor( auditor );
@@ -219,7 +224,6 @@ contract Platform is Pausable {
 
     /**
      * @notice Adds a record of a previously valid audit to the newer datastore
-     * @param auditor The auditor who is migrated
      */
     function migrateAuditor() external {
         IDatastore( dataStore ).migrateAuditor( _msgSender() );
@@ -228,7 +232,7 @@ contract Platform is Pausable {
 
     /**
      * @notice Allows the auditor to perform audits again
-     * @param auditor The auditor who is reinstated
+     * @param auditor The entity which has regained the privilege of being able to perform audits
      */
     function reinstateAuditor( address auditor ) external onlyOwner() whenNotPaused() {
         IDatastore( dataStore ).reinstateAuditor( auditor );
@@ -237,7 +241,6 @@ contract Platform is Pausable {
 
     /**
      * @notice Blocks functionality that prevents writing of additive data to the store
-     * @dev You can suspend just in case
      */
     function pauseDataStore() external onlyOwner() {
         IDatastore( dataStore ).pause();

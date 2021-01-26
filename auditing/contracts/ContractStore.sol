@@ -21,6 +21,7 @@ contract ContractStore {
         address creationHash;
         bool    audited;
         bool    approved;
+        bool    confirmedHash;
     }
 
     // Note for later, 0th index is used to check if it already exists
@@ -76,6 +77,7 @@ contract ContractStore {
         uint256 contractIndex_ = _contractIndex( contract_ );
 
         contracts[ contractIndex_ ].auditor = auditor;
+        contracts[ contractIndex_ ].confirmedHash = false;
 
         emit SetContractAuditor( contract_, auditor );
     }
@@ -87,6 +89,7 @@ contract ContractStore {
         contractCreationHash[ creationHash ] = contractIndex_;
         
         contracts[ contractIndex_ ].creationHash = creationHash;
+        contracts[ contractIndex_ ].confirmedHash = true;
 
         emit SetContractCreationHash( contract_, creationHash );
     }
@@ -150,7 +153,7 @@ contract ContractStore {
         }
     }
 
-    function _contractDetails( address contract_ ) internal view returns ( address, address, address, address, bool, bool ) {
+    function _contractDetails( address contract_ ) internal view returns ( address, address, address, address, bool, bool, bool ) {
         require( 0 < contracts.length,      "No contracts have been added" );
         uint256 index = _contractIndex( contract_ );
         require( index <= contracts.length, "Record does not exist" );
@@ -163,6 +166,7 @@ contract ContractStore {
             contracts[ index ].creationHash,
             contracts[ index ].audited,
             contracts[ index ].approved,
+            contracts[ index ].confirmedHash,
         );
     }
 

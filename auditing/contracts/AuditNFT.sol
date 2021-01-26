@@ -17,9 +17,9 @@ contract AuditNFT is Ownable, ERC721 {
 
     constructor() Ownable() ERC721( "Audit Archive NFT", "Audit Archive" ) public {}
 
-    function mint( address auditor, address contract_, address deployer, bool approved, bool audited, bytes calldata hash ) external onlyOwner() {
+    function mint( address auditor, address contract_, address deployer, bool approved, bool audited, bool confirmedHash, bytes calldata hash ) external onlyOwner() {
 
-        // TODO: add "audited" into the metadata. It does not need to be a parameter since this should only be called post audit
+        // TODO: add "audited", "confirmedHash" into the metadata. It does not need to be a parameter since this should only be called post audit
 
         // Address types must be converted manually otherwise conversions will not be in human readable form later
         string memory auditorStr = addressToString( auditor );
