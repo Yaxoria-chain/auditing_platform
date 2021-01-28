@@ -29,6 +29,13 @@ contract Datastore is ContractStore, AuditorStore, DeployerStore, Pausable {
     event ConfirmedRegistration( address indexed contract_, address indexed deployer, address creationHash, address indexed auditor );
     event ApprovedAudit( address contract_, address indexed auditor );
     event OpposedAudit( address contract_, address indexed auditor );
+
+    // TODO: contracts being stored by index will cause a problem when migrating to a new store because the index
+    //       will reset back to 1 therefore contract behavior must be expanded upon to indicate which absolute contract
+    //       addition it is while maintaining the searchable index
+    //       (problem is that the index is stored and so different store versions will eventually result in collisions for the auditor arrays)
+    //       using the absolute value makes no sense because you are forced to recurse from the start to the required store
+    //       dirty quick solution is via structs holding the index and which store it is from
     
     constructor() Pausable() public {}
 

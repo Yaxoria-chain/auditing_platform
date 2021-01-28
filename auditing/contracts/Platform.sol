@@ -183,8 +183,8 @@ contract Platform is Pausable {
         IDatastore( dataStore ).approveAudit( contract_, _msgSender() );
         IAuditable( contract_ ).approveAudit( _msgSender() );
 
-        ( _auditor, _deployer, , _creationHash, _audited, _approved, _confirmedHash ) = IDatastore( dataStore ).contractDetails( contract_ );
-        IAuditNFT( NFT ).mint( _auditor, contract_, _deployer, _approved, _audited, _confirmedHash, _creationHash );
+        ( _auditor, _deployer, , _creationHash,, _approved, ) = IDatastore( dataStore ).contractDetails( contract_ );
+        IAuditNFT( NFT ).mint( _auditor, contract_, _deployer, _approved, _creationHash );
 
         emit ApprovedAudit( contract_, msg.sender );
     }
@@ -198,8 +198,8 @@ contract Platform is Pausable {
         IDatastore( dataStore ).opposeAudit( contract_, _msgSender() );
         IAuditable( contract_ ).opposeAudit( _msgSender() );
 
-        ( _auditor, _deployer, , _creationHash, _audited, _approved, _confirmedHash ) = IDatastore( dataStore ).contractDetails( contract_ );
-        IAuditNFT( NFT ).mint( _auditor, contract_, _deployer, _approved, _audited, _confirmedHash, _creationHash );
+        ( _auditor, _deployer, , _creationHash, _approved, ) = IDatastore( dataStore ).contractDetails( contract_ );
+        IAuditNFT( NFT ).mint( _auditor, contract_, _deployer, _approved, _creationHash );
 
         emit OpposedAudit( contract_, msg.sender );
     }
