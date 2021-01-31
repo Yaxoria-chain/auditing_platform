@@ -15,21 +15,21 @@ interface IDatastore {
 
     function opposeAudit( address contract_, address auditor ) external;
 
-    function contractDetails( address contract_ ) external returns ( address, address, address, address, bool, bool );
+    function getContractInformation( address contract_ ) external returns ( address, address, address, address, bool, bool );
     
-    function addAuditor( address auditor ) external;
+    function addAuditor( address platformOwner, address auditor ) external;
     
-    function suspendAuditor( address auditor ) external;
+    function suspendAuditor( address platformOwner, address auditor ) external;
     
     function migrateAuditor( address auditor ) external;
         
-    function reinstateAuditor( address auditor ) external;
+    function reinstateAuditor( address platformOwner, address auditor ) external;
     
     function pauseDataStore() external;
     
     function unpauseDataStore() external;
     
-    function linkDataStore( address dataStore ) external;
+    function linkDataStore( address platformOwner, address dataStore ) external;
     
     function searchAllStoresForIsAuditor( address auditor ) external view returns ( bool );
     

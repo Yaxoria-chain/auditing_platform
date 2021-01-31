@@ -209,7 +209,7 @@ contract Platform is Pausable {
      * @param auditor The entity which is obtaining the privilege of being able to perform audits
      */
     function addAuditor( address auditor ) external onlyOwner() whenNotPaused() {
-        IDatastore( dataStore ).addAuditor( auditor );
+        IDatastore( dataStore ).addAuditor( _msgSender(), auditor );
         emit AuditorAdded( msg.sender, auditor );
     }
 
@@ -260,8 +260,7 @@ contract Platform is Pausable {
      * @param _dataStore Address meant to be a contract that stores information regarding audits
      */
     function changeDataStore( address _dataStore ) external onlyOwner() {
-        // TODO: note regarding permissions
-        IDatastore( _dataStore ).linkDataStore( dataStore );
+        IDatastore( _dataStore ).linkDataStore( _msgSender(), dataStore );
   
         dataStore = _dataStore;
         

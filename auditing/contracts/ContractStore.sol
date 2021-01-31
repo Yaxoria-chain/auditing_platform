@@ -29,22 +29,30 @@ contract ContractStore {
     mapping( address => uint256 ) private contractCreationHash;
 
     event NewContractRecord(
+        address         platform,
+        address         dataStore,
         address indexed contract_, 
         address indexed deployer, 
         uint256         contractIndex
     );
 
     event SetContractAuditor( 
+        address         platform,
+        address         dataStore,
         address indexed contract_, 
         address indexed auditor
     );
 
     event SetContractCreationHash( 
+        address         platform,
+        address         dataStore,
         address indexed contract_, 
         address indexed creationHash
     );
 
-    event SetContractApproval( 
+    event SetContractApproval(
+        address         platform,
+        address         dataStore,
         address indexed contract_,
         address indexed auditor, 
         bool    indexed approved
@@ -52,7 +60,7 @@ contract ContractStore {
 
     constructor() internal {}
 
-    function _registerContract( address contract_, address deployer ) internal {
+    function _registerContract( address platform, address contract_, address deployer ) internal {
         require( !_hasContractRecord( contract_ ), "Contract has already been registered" );
 
         // Create a single struct for the contract data and then reference it via indexing instead of managing mulitple storage locations
@@ -63,44 +71,44 @@ contract ContractStore {
 
         // Start adding from the next position and thus have an empty 0th default value which indicates an error to the user
         contracts[ contracts.length++ ] = _contractData;
-        uint256 contractIndex_ = contracts.length;
+        uint256 contractIndex = contracts.length;
 
         // Add to mapping for easy lookup, note that 0th index will also be default which allows us to do some safety checks
-        contractHash[ contract_ ] = contractIndex_;
+        contractHash[ contract_ ] = contractIndex;
 
         registeredContractCount = registeredContractCount.add( 1 );
 
-        emit NewContractRecord( contract_, deployer, contractIndex_ );
+        emit NewContractRecord( platform, msg.sender, contract_, deployer, contractIndex );
     }
 
-    function _setContractAuditor( contract_, auditor ) internal {
-        uint256 contractIndex_ = _contractIndex( contract_ );
+    function _setContractAuditor( address platform, address contract_, address auditor ) internal {
+        uint256 contractIndex = _getContractIndex( contract_ );
 
-        contracts[ contractIndex_ ].auditor = auditor;
-        contracts[ contractIndex_ ].confirmedHash = false;
+        contracts[ contractIndex ].auditor = auditor;
+        contracts[ contractIndex ].confirmedHash = false;
 
-        emit SetContractAuditor( contract_, auditor );
+        emit SetContractAuditor( platform, msg.sender, contract_, auditor );
     }
 
-    function _setContractCreationHash( contract_, creationHash ) internal {
+    function _setContractCreationHash( address platform, address contract_, address creationHash ) internal {
         require( !_hasCreationRecord( creationHash ), "Contract exists in the contract creation hash mapping" );
         
-        uint256 contractIndex_ = _contractIndex( contract_ );
-        contractCreationHash[ creationHash ] = contractIndex_;
+        uint256 contractIndex = _getContractIndex( contract_ );
+        contractCreationHash[ creationHash ] = contractIndex;
         
-        contracts[ contractIndex_ ].creationHash = creationHash;
-        contracts[ contractIndex_ ].confirmedHash = true;
+        contracts[ contractIndex ].creationHash = creationHash;
+        contracts[ contractIndex ].confirmedHash = true;
 
-        emit SetContractCreationHash( contract_, creationHash );
+        emit SetContractCreationHash( platform, msg.sender, contract_, creationHash );
     }
 
-    function _setContractApproval( address contract_, bool approved ) internal {
-        uint256 contractIndex_ = _contractIndex( contract_ );
+    function _setContractApproval( address platform, address contract_, bool approved ) internal {
+        uint256 contractIndex = _getContractIndex( contract_ );
 
-        require( !contracts[ contractIndex_ ].audited, "Cannot change audit state post audit" );
+        require( !contracts[ contractIndex ].audited, "Cannot change audit state post audit" );
 
-        contracts[ contractIndex_ ].audited = true;
-        contracts[ contractIndex_ ].approved = approved;
+        contracts[ contractIndex ].audited = true;
+        contracts[ contractIndex ].approved = approved;
 
         if ( approved ) {
             approvedContractCount = approvedContractCount.add( 1 );
@@ -108,11 +116,11 @@ contract ContractStore {
             opposedContractCount = opposedContractCount.add( 1 );
         }
 
-        emit SetContractApproval( contract_, contracts[ contractIndex_ ].auditor, approved );
+        emit SetContractApproval( platform, msg.sender, contract_, contracts[ contractIndex ].auditor, approved );
     }
 
-    function _hasContractRecord( address contractHash_ ) internal view returns ( bool ) {
-        return contractHash[ contractHash_ ] != 0;
+    function _hasContractRecord( address contractHash ) internal view returns ( bool ) {
+        return contractHash[ contractHash ] != 0;
     }
 
     function _hasCreationRecord( address creationHash ) internal view returns ( bool ) {
@@ -123,7 +131,7 @@ contract ContractStore {
     (
         address auditor,
         address deployer, 
-        address contractHash_,
+        address contractHash,
         address creationHash,  
         bool    audited, 
         bool    approved
@@ -131,53 +139,81 @@ contract ContractStore {
         // Check in all previous stores if this contract has been recorded
         // This is likely to be expensive so it is better to check each store manually / individually
 
-        uint256 index;
+        uint256 contractIndex;
 
         if ( _hasContractRecord( contract_ ) ) {
-            index = contractHash[ contract_ ];
+            contractIndex = contractHash[ contract_ ];
         } else if ( _hasCreationRecord( contract_ ) ) {
-            index = contractCreationHash[ contract_ ];
+            contractIndex = contractCreationHash[ contract_ ];
         }
 
-        if ( index != 0 ) {
-            auditor       = contracts[ index ].auditor;
-            deployer      = contracts[ index ].deployer;
-            contractHash_ = contracts[ index ].contractHash;
-            creationHash  = contracts[ index ].creationHash;
-            audited       = contracts[ index ].audited;
-            approved      = contracts[ index ].approved;
+        if ( contractIndex != 0 ) {
+            auditor       = contracts[ contractIndex ].auditor;
+            deployer      = contracts[ contractIndex ].deployer;
+            contractHash  = contracts[ contractIndex ].contractHash;
+            creationHash  = contracts[ contractIndex ].creationHash;
+            audited       = contracts[ contractIndex ].audited;
+            approved      = contracts[ contractIndex ].approved;
         } else if ( previousDataStore != address( 0 ) ) {
-            ( auditor, deployer, contractHash_, creationHash, audited, approved ) = IDatastore( previousDatastore ).searchAllStoresForContractDetails( contract_ );
+            ( auditor, deployer, contractHash, creationHash, audited, approved ) = IDatastore( previousDatastore ).searchAllStoresForContractDetails( contract_ );
         } else {
             revert( "No contract record in any data store" );
         }
     }
 
-    function _contractDetails( address contract_ ) internal view returns ( address, address, address, address, bool, bool, bool ) {
+    /**
+     * @notice 
+     * @param contract_ The address of the contract that has been audited
+     * @return All of the struct stored information about a given contract
+     */
+    function _getContractInformation( address contract_ ) internal view returns ( address, address, address, address, bool, bool, bool ) {
         require( 0 < contracts.length,      "No contracts have been added" );
-        uint256 index = _contractIndex( contract_ );
-        require( index <= contracts.length, "Record does not exist" );
+        uint256 contractIndex = _getContractIndex( contract_ );
+        require( contractIndex <= contracts.length, "Record does not exist" );
 
+        return _getContractInformationByIndex( contractIndex );
+    }
+
+    /**
+     * @notice 
+     * @param contractIndex A number referencing the storage location of the contract information
+     * @return All of the struct stored information about a given contract
+     */
+    function _getContractInformation( uint256 contractIndex ) internal view returns ( address, address, address, address, bool, bool, bool ) {
+        require( 0 < contracts.length,      "No contracts have been added" );        
+        require( contractIndex <= contracts.length, "Record does not exist" );
+
+        return _getContractInformationByIndex( contractIndex );
+    }
+
+    /**
+     * @notice 
+     * @param contractIndex A positive number which should be less than or equal to the total number of contracts
+     * @dev Inherently unbounded and unsafe call that is meant to be used in _getContractInformation() which performs the required validation. "DRY".
+     * @return All of the struct stored information about a given contract
+     */
+    function _getContractInformationByIndex( uint256 contractIndex ) private view returns ( address, address, address, address, bool, bool, bool ) {
         return 
         (
-            contracts[ index ].auditor,
-            contracts[ index ].deployer,
-            contracts[ index ].contractHash,
-            contracts[ index ].creationHash,
-            contracts[ index ].audited,
-            contracts[ index ].approved,
-            contracts[ index ].confirmedHash,
+            contracts[ contractIndex ].auditor,
+            contracts[ contractIndex ].deployer,
+            contracts[ contractIndex ].contractHash,
+            contracts[ contractIndex ].creationHash,
+            contracts[ contractIndex ].audited,
+            contracts[ contractIndex ].approved,
+            contracts[ contractIndex ].confirmedHash,
         );
     }
 
-    function _contractIndex( address contract_ ) private view returns ( uint256 index ) {
-        index = contractHash[ contract_ ];
+    function _getContractIndex( address contract_ ) private view returns ( uint256 contractIndex ) {
+        contractIndex = contractHash[ contract_ ];
 
-        if ( index == 0 ) {
-            index = contractCreationHash[ contract_ ];
+        if ( contractIndex == 0 ) {
+            // TODO: since the creation hash will have to be a string this cannot be used here
+            contractIndex = contractCreationHash[ contract_ ];
         }
 
-        require( index != 0, "Contract has not been added" );
+        require( contractIndex != 0, "Contract has not been added" );
     }
 
 }
