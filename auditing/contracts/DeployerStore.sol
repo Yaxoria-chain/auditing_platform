@@ -89,8 +89,9 @@ contract DeployerStore {
             activeDeployerCount = activeDeployerCount.add( 1 );
 
             emit AddedDeployer( platform, _msgSender(), deployer );
+        } else if ( deployers[ deployer ].blacklisted ) {
+            revert( "Deployer has been blacklisted" );
         }
-        // TODO: check for blacklist, revert if true
     }
 
     function _suspendDeployer( address platformOwner, address platform, address deployer ) internal {

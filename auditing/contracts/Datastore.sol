@@ -82,6 +82,8 @@ contract Datastore is ContractStore, AuditorStore, DeployerStore, Pausable {
     /**
      * TODO: currently the sub stores are tightly coupled with this front facing datastore, expand on the architecture to allow hotswapping
      *       of the other stores
+     * TODO: any internal contract stores that refer to _msgSender() as this API data store need to be adjusted since they are internal calls and thus
+     *       the address will be the same for the each store because they have not been implemented in a modular way
      */
     
 
@@ -239,8 +241,8 @@ contract Datastore is ContractStore, AuditorStore, DeployerStore, Pausable {
         emit ReinstatedAuditor( platformOwner, msg.sender, auditor );
     }
 
-    function migrateAuditor( address migrator, address auditor ) external onlyOwner() {
-        _migrate( migrator, auditor );
+    function migrateAuditor( address platform, address auditor ) external onlyOwner() {
+        _migrate( platform, previousDatastore, auditor );
     }
 
     function register( address contract_, address deployer ) external onlyOwner() whenNotPaused() {

@@ -226,7 +226,7 @@ contract Platform is Pausable {
      * @notice Adds a record of a previously valid audit to the newer datastore
      */
     function migrateAuditor() external {
-        IDatastore( dataStore ).migrateAuditor( _msgSender() );
+        IDatastore( dataStore ).migrateAuditor( this, _msgSender() );
         emit AuditorMigrated( msg.sender );
     }
 

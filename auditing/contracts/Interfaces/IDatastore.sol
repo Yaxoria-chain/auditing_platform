@@ -21,7 +21,7 @@ interface IDatastore {
     
     function suspendAuditor( address platformOwner, address auditor ) external;
     
-    function migrateAuditor( address auditor ) external;
+    function migrateAuditor( address platform, address auditor ) external;
         
     function reinstateAuditor( address platformOwner, address auditor ) external;
     
