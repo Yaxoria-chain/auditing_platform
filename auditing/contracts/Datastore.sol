@@ -39,7 +39,13 @@ contract Datastore is ContractStore, AuditorStore, DeployerStore, Pausable {
     event SuspendedDeployer( 
         address indexed platformOwner, 
         address indexed platform, 
-        address indexed auditor
+        address indexed deployer
+    );
+
+    event ReinstatedDeployer( 
+        address indexed platformOwner, 
+        address indexed platform, 
+        address indexed deployer
     );
 
     event RegisteredContract(
