@@ -143,8 +143,6 @@ contract ContractStore {
 
         if ( _hasContractRecord( contract_ ) ) {
             contractIndex = contractHash[ contract_ ];
-        } else if ( _hasCreationRecord( contract_ ) ) {
-            contractIndex = contractCreationHash[ contract_ ];
         }
 
         if ( contractIndex != 0 ) {
@@ -207,11 +205,6 @@ contract ContractStore {
 
     function _getContractIndex( address contract_ ) private view returns ( uint256 contractIndex ) {
         contractIndex = contractHash[ contract_ ];
-
-        if ( contractIndex == 0 ) {
-            // TODO: since the creation hash will have to be a string this cannot be used here
-            contractIndex = contractCreationHash[ contract_ ];
-        }
 
         require( contractIndex != 0, "Contract has not been added" );
     }

@@ -197,12 +197,12 @@ contract AuditorStore {
         return auditors[ auditor ].opposedContracts[ index ];
     }
 
-    function _migrate( address migrator, address auditor ) internal {
+    function _migrate( address platform, address previousDatastore, address auditor ) internal {
         // Auditor should not exist to mitigate event spamming or possible neglectful changes to 
-        // _recursiveAuditorSearch(address) which may allow them to switch their suspended status to active
+        // _recursiveIsAuditorSearch(address) which may allow them to switch their suspended status to active
         require( !_hasAuditorRecord( auditor ), "Already in data store" );
         
-        bool isAnAuditor = _recursiveAuditorSearch( auditor );
+        bool isAnAuditor = _recursiveIsAuditorSearch( auditor, previousDatastore );
 
         if ( isAnAuditor ) {
             // Do not rewrite previous audits into each new datastore as that will eventually become too expensive
@@ -211,7 +211,7 @@ contract AuditorStore {
 
             activeAuditorCount = activeAuditorCount.add( 1 );
 
-            emit AcceptedMigration( migrator, auditor );
+            emit AcceptedMigration( platform, auditor );
         } else {
             revert( "Auditor is either suspended or has never been in the system" );
         }

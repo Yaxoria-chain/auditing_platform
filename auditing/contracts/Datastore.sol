@@ -36,6 +36,12 @@ contract Datastore is ContractStore, AuditorStore, DeployerStore, Pausable {
         address indexed auditor
     );
 
+    event SuspendedDeployer( 
+        address indexed platformOwner, 
+        address indexed platform, 
+        address indexed auditor
+    );
+
     event RegisteredContract(
         address indexed contract_, 
         address indexed deployer
@@ -150,6 +156,28 @@ contract Datastore is ContractStore, AuditorStore, DeployerStore, Pausable {
     }
 
     /**
+     * @notice Check in the CURRENT (deployer) data store the information regarding an approved contract
+     * @param deployer 
+     * @param contractIndex A number which should be less than or equal to the total number of approved contracts for the deployer
+     * @return The audited contract information
+     */
+    function getDeployerApprovedContractInformation( address deployer, uint256 contractIndex ) external view returns ( address, address, address, address, bool, bool, bool ) {
+        uint256 contractIndex = _getDeployerApprovedContractIndex( deployer, contractIndex );
+        return _getContractInformation( contractIndex );
+    }
+
+    /**
+     * @notice Check in the CURRENT (deployer) data store the information regarding an opposed contract
+     * @param deployer 
+     * @param contractIndex A number which should be less than or equal to the total number of opposed contracts for the deployer
+     * @return The audited contract information
+     */
+    function getDeployerOpposedContractInformation( address deployer, uint256 contractIndex ) external view returns ( address, address, address, address, bool, bool, bool ) {
+        uint256 contractIndex = _getDeployerOpposedContractIndex( deployer, contractIndex );
+        return _getContractInformation( contractIndex );
+    }
+
+    /**
      * @notice Check in the current data store if the contractHash address has been added
      * @param contractHash The address, intented to be a contract
      * @dev There are two hash values, contract creation transaction and the actual contract hash, this is the contract hash
@@ -239,6 +267,23 @@ contract Datastore is ContractStore, AuditorStore, DeployerStore, Pausable {
         require( activeStore, "Store has been deactivated" );
         _reinstateAuditor( platformOwner, _msgSender(), auditor );
         emit ReinstatedAuditor( platformOwner, msg.sender, auditor );
+    }
+
+    /**
+     * @notice Revoke permissions from the auditor
+     * @param platformOwner the owner of the platform
+     * @param deployer The entity that is/was deemed as someone who has deployed contract(s)
+     */
+    function suspendDeployer( address platformOwner, address deployer ) external onlyOwner() {
+        require( activeStore, "Store has been deactivated" );
+        _suspendDeployer( platformOwner, _msgSender(), deployer );
+        emit SuspendedDeployer( platformOwner, msg.sender, deployer );
+    }
+
+    function reinstateDeployer( address platformOwner, address deployer ) external onlyOwner() whenNotPaused() {
+        require( activeStore, "Store has been deactivated" );
+        _reinstateDeployer( platformOwner, _msgSender(), deployer );
+        emit ReinstatedDeployer( platformOwner, msg.sender, deployer );
     }
 
     function migrateAuditor( address platform, address auditor ) external onlyOwner() {

@@ -55,6 +55,10 @@ contract Platform is Pausable {
      */
     event AuditorMigrated( address indexed sender, address indexed auditor );
     
+    event DeployerSuspended( address indexed owner, address indexed auditor );
+
+    event DeployerReinstated( address indexed owner, address indexed auditor );
+
     /**
      * @notice Event tracking whenever the datastore is swapped out
      * @param owner The current owner of the platform
@@ -220,6 +224,16 @@ contract Platform is Pausable {
     function suspendAuditor( address auditor ) external onlyOwner() {
         IDatastore( dataStore ).suspendAuditor( auditor );
         emit AuditorSuspended( msg.sender, auditor );
+    }
+
+    function suspendDeployer( address deployer ) external onlyOwner() {
+        IDatastore( dataStore ).suspendDeployer( deployer );
+        emit DeployerSuspended( msg.sender, deployer );
+    }
+
+    function reinstateDeployer( address deployer ) external onlyOwner() whenNotPaused() {
+        IDatastore( dataStore ).reinstateDeployer( deployer );
+        emit DeployerReinstated( msg.sender, deployer );
     }
 
     /**
