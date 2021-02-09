@@ -1,10 +1,11 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
-pragma solidity 0.7.4;
+// SPDX-License-Identifier: AGPL v3
+pragma solidity ^0.8.1;
 
 import "./Pausable.sol";
 import "./IDatastore.sol";
 import "./IAuditable.sol";
 import "./IAuditNFT.sol";
+import "./Ownable.sol";
 
 
 contract Platform is Pausable {
@@ -187,7 +188,7 @@ contract Platform is Pausable {
         IDatastore( dataStore ).approveAudit( contract_, _msgSender() );
         IAuditable( contract_ ).approveAudit( _msgSender() );
 
-        ( _auditor, _deployer, , _creationHash,, _approved, ) = IDatastore( dataStore ).contractDetails( contract_ );
+        ( address _auditor, address _deployer, , address _creationHash, , bool _approved, ) = IDatastore( dataStore ).getContractInformation( contract_ );
         IAuditNFT( NFT ).mint( _auditor, contract_, _deployer, _approved, _creationHash );
 
         emit ApprovedAudit( contract_, msg.sender );
@@ -202,7 +203,7 @@ contract Platform is Pausable {
         IDatastore( dataStore ).opposeAudit( contract_, _msgSender() );
         IAuditable( contract_ ).opposeAudit( _msgSender() );
 
-        ( _auditor, _deployer, , _creationHash, _approved, ) = IDatastore( dataStore ).contractDetails( contract_ );
+        ( address _auditor, address _deployer, , address _creationHash, , bool _approved, ) = IDatastore( dataStore ).getContractInformation( contract_ );
         IAuditNFT( NFT ).mint( _auditor, contract_, _deployer, _approved, _creationHash );
 
         emit OpposedAudit( contract_, msg.sender );
@@ -222,17 +223,17 @@ contract Platform is Pausable {
      * @param auditor The entity which has lost the privilege of being able to perform audits
      */
     function suspendAuditor( address auditor ) external onlyOwner() {
-        IDatastore( dataStore ).suspendAuditor( auditor );
+        IDatastore( dataStore ).suspendAuditor( address( this ), auditor );
         emit AuditorSuspended( msg.sender, auditor );
     }
 
     function suspendDeployer( address deployer ) external onlyOwner() {
-        IDatastore( dataStore ).suspendDeployer( deployer );
+        IDatastore( dataStore ).suspendDeployer( address( this ), deployer );
         emit DeployerSuspended( msg.sender, deployer );
     }
 
     function reinstateDeployer( address deployer ) external onlyOwner() whenNotPaused() {
-        IDatastore( dataStore ).reinstateDeployer( deployer );
+        IDatastore( dataStore ).reinstateDeployer( address( this ), deployer );
         emit DeployerReinstated( msg.sender, deployer );
     }
 
@@ -240,8 +241,8 @@ contract Platform is Pausable {
      * @notice Adds a record of a previously valid audit to the newer datastore
      */
     function migrateAuditor() external {
-        IDatastore( dataStore ).migrateAuditor( this, _msgSender() );
-        emit AuditorMigrated( msg.sender );
+        IDatastore( dataStore ).migrateAuditor( address( this ), _msgSender() );
+        emit AuditorMigrated( msg.sender, msg.sender );
     }
 
     /**
@@ -249,7 +250,7 @@ contract Platform is Pausable {
      * @param auditor The entity which has regained the privilege of being able to perform audits
      */
     function reinstateAuditor( address auditor ) external onlyOwner() whenNotPaused() {
-        IDatastore( dataStore ).reinstateAuditor( auditor );
+        IDatastore( dataStore ).reinstateAuditor( address( this ), auditor );
         emit AuditorReinstated( msg.sender, auditor );
     }
 
@@ -281,4 +282,3 @@ contract Platform is Pausable {
         emit ChangedDataStore( msg.sender, dataStore );
     }
 }
-

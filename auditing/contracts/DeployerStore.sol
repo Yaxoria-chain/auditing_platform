@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-pragma solidity 0.7.4;
+pragma solidity ^0.8.1;
 
-import "@openzeppelin/contracts/math/SafeMath.sol";
+import "./SafeMath.sol";
 
 // TODO: Ban list for deploying addresses? Address list linking one address to others since you can easily create a new wallet
 contract DeployerStore {
     
-    // using SafeMath for uint256; 
+    using SafeMath for uint256; 
 
     /**
      *  @notice Represents the number of currently valid deployers
@@ -182,3 +182,4 @@ contract DeployerStore {
         emit SetContractIndex( platform, msg.sender, deployer, contractIndex, approved );
     }
 }
+

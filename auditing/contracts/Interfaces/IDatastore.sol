@@ -1,11 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-pragma solidity 0.7.4;
+pragma solidity ^0.8.1;
 
 interface IDatastore {
-
-    // function completeAudit( address auditor, address deployer, address contract_, address txHash, bool approved ) external;
     
-    function register( address contract_, address auditor, address deployer, address creationHash ) external;
+    function register( address contract_, address deployer ) external;
 
     function setAuditor( address contract_, address auditor ) external;
 
@@ -15,7 +13,7 @@ interface IDatastore {
 
     function opposeAudit( address contract_, address auditor ) external;
 
-    function getContractInformation( address contract_ ) external returns ( address, address, address, address, bool, bool );
+    function getContractInformation( address contract_ ) external returns ( address, address, address, address, bool, bool, bool );
     
     function addAuditor( address platformOwner, address auditor ) external;
     
@@ -29,9 +27,9 @@ interface IDatastore {
 
     function reinstateDeployer( address platformOwner, address auditor ) external;
     
-    function pauseDataStore() external;
+    function pause() external;
     
-    function unpauseDataStore() external;
+    function unpause() external;
     
     function linkDataStore( address platformOwner, address dataStore ) external;
     
@@ -40,4 +38,5 @@ interface IDatastore {
     function searchAllStoresForContractDetails( address contract_ ) external view returns ( address, address, address, address, bool, bool );
 
 }
+
 

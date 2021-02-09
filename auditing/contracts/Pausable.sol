@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: AGPL v3
-
-pragma solidity ^0.6.0;
+pragma solidity ^0.8.1;
 
 import "./Ownable.sol";
 
@@ -37,3 +36,4 @@ contract Pausable is Ownable {
         emit Unpaused( msg.sender );
     }
 }
+
