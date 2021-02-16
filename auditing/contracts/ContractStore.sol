@@ -3,6 +3,7 @@ pragma solidity ^0.8.1;
 
 import "./SafeMath.sol";
 import "./IDatastore.sol";
+import "./Ownable.sol";
 
 contract ContractStore {
     
@@ -11,6 +12,8 @@ contract ContractStore {
     uint256 public registeredContractCount;
     uint256 public approvedContractCount;
     uint256 public opposedContractCount;
+
+    address previousContractStore;
 
     Contract[] private contracts;
 
@@ -57,10 +60,12 @@ contract ContractStore {
         address indexed auditor, 
         bool    indexed approved
     );
+    
+    event LinkedContractStore();
 
-    constructor() internal {}
+    constructor() public Ownable() {}
 
-    function _registerContract( address platform, address contract_, address deployer ) internal {
+    function registerContract( address platform, address contract_, address deployer ) external onlyOwner() {
         require( !_hasContractRecord( contract_ ), "Contract has already been registered" );
 
         // Create a single struct for the contract data and then reference it via indexing instead of managing mulitple storage locations
@@ -81,7 +86,7 @@ contract ContractStore {
         emit NewContractRecord( platform, msg.sender, contract_, deployer, contractIndex );
     }
 
-    function _setContractAuditor( address platform, address contract_, address auditor ) internal {
+    function _setContractAuditor( address platform, address contract_, address auditor ) external onlyOwner() {
         uint256 contractIndex = _getContractIndex( contract_ );
 
         contracts[ contractIndex ].auditor = auditor;
@@ -90,7 +95,7 @@ contract ContractStore {
         emit SetContractAuditor( platform, msg.sender, contract_, auditor );
     }
 
-    function _setContractCreationHash( address platform, address contract_, address creationHash ) internal {
+    function _setContractCreationHash( address platform, address contract_, address creationHash ) external onlyOwner() {
         require( !_hasCreationRecord( creationHash ), "Contract exists in the contract creation hash mapping" );
         
         uint256 contractIndex = _getContractIndex( contract_ );
@@ -102,7 +107,7 @@ contract ContractStore {
         emit SetContractCreationHash( platform, msg.sender, contract_, creationHash );
     }
 
-    function _setContractApproval( address platform, address contract_, bool approved ) internal {
+    function _setContractApproval( address platform, address contract_, bool approved ) external onlyOwner() {
         uint256 contractIndex = _getContractIndex( contract_ );
 
         require( !contracts[ contractIndex ].audited, "Cannot change audit state post audit" );
@@ -119,15 +124,15 @@ contract ContractStore {
         emit SetContractApproval( platform, msg.sender, contract_, contracts[ contractIndex ].auditor, approved );
     }
 
-    function _hasContractRecord( address contractHash ) internal view returns ( bool ) {
+    function _hasContractRecord( address contractHash ) external onlyOwner() view returns ( bool ) {
         return contractHash[ contractHash ] != 0;
     }
 
-    function _hasCreationRecord( address creationHash ) internal view returns ( bool ) {
+    function _hasCreationRecord( address creationHash ) external onlyOwner() view returns ( bool ) {
         return contractCreationHash[ creationHash ] != 0;
     }
 
-    function _contractDetailsRecursiveSearch( address contract_, address previousDataStore ) internal view returns 
+    function _contractDetailsRecursiveSearch( address contract_, address previousDataStore ) external onlyOwner() view returns 
     (
         address auditor,
         address deployer, 
@@ -164,7 +169,7 @@ contract ContractStore {
      * @param contract_ The address of the contract that has been audited
      * @return All of the struct stored information about a given contract
      */
-    function _getContractInformation( address contract_ ) internal view returns ( address, address, address, address, bool, bool, bool ) {
+    function _getContractInformation( address contract_ ) external onlyOwner() view returns ( address, address, address, address, bool, bool, bool ) {
         require( 0 < contracts.length,      "No contracts have been added" );
         uint256 contractIndex = _getContractIndex( contract_ );
         require( contractIndex <= contracts.length, "Record does not exist" );
@@ -177,7 +182,7 @@ contract ContractStore {
      * @param contractIndex A number referencing the storage location of the contract information
      * @return All of the struct stored information about a given contract
      */
-    function _getContractInformation( uint256 contractIndex ) internal view returns ( address, address, address, address, bool, bool, bool ) {
+    function _getContractInformation( uint256 contractIndex ) external onlyOwner() view returns ( address, address, address, address, bool, bool, bool ) {
         require( 0 < contracts.length,      "No contracts have been added" );        
         require( contractIndex <= contracts.length, "Record does not exist" );
 
@@ -207,6 +212,10 @@ contract ContractStore {
         contractIndex = contractHash[ contract_ ];
 
         require( contractIndex != 0, "Contract has not been added" );
+    }
+    
+    function linkContractStore( address contractStore ) external onlyOwner() {
+        previousContractStore = contractStore;
     }
 
 }
